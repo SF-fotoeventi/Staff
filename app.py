@@ -2,10 +2,12 @@ import streamlit as st
 import json
 import os
 
-st.set_page_config(page_title="Gestione Staff Sicura", page_icon="🔐")
+# --- CONFIGURAZIONE PAGINA ---
+st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
-# --- DATABASE UTENTI (Password) ---
-# Puoi cambiare le password qui sotto come preferisci
+# --- DATABASE UTENTI (Nomi e Password) ---
+# Le chiavi (nomi) sono tutte minuscole per il login.
+# Le password sono modificabili in qualsiasi momento.
 utenti = {
     "Simone": "boss79",
     "Klaudia": "k98",
@@ -25,21 +27,25 @@ utenti = {
     "Raffaele": "raf21",
     "Tomas": "tom45",
     "Ugo": "ugo90",
-    "Valentina": "val75",
+    "Valentina": "val75"
 }
 
+# --- FUNZIONE CARICAMENTO DATI ---
 def carica_mese(nome_file):
     if os.path.exists(nome_file):
         with open(nome_file, "r") as f:
             return json.load(f)
     return []
 
+# --- GESTIONE LOGIN ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
 if not st.session_state.autenticato:
-    st.title("🔐 Accesso Riservato")
-    user = st.text_input("Nome utente (es. klaudia):").lower()
+    st.title("🔐 Accesso Riservato Staff")
+    st.write("Inserisci le tue credenziali per vedere gli impegni.")
+    
+    user = st.text_input("Nome utente (tutto minuscolo):").lower().strip()
     password = st.text_input("Password:", type="password")
     
     if st.button("Entra"):
@@ -48,29 +54,43 @@ if not st.session_state.autenticato:
             st.session_state.username = user
             st.rerun()
         else:
-            st.error("Nome utente o password errati!")
+            st.error("Nome utente o password non corretti.")
 else:
+    # --- APP DOPO IL LOGIN ---
     username = st.session_state.username
-    st.sidebar.title(f"👋 {username.capitalize()}")
+    st.sidebar.title(f"👋 Ciao {username.capitalize()}")
     
-    mesi_disponibili = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
-    file_esistenti = [m for m in mesi_disponibili if os.path.exists(m)]
+    # Lista dei file mesi che l'app proverà a cercare
+    mesi_previsti = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    file_esistenti = [m for m in mesi_previsti if os.path.exists(m)]
     
     if not file_esistenti:
-        st.warning("Nessun mese caricato.")
+        st.warning("Nessun piano eventi caricato su GitHub. Contatta l'amministratore.")
     else:
-        scelta = st.sidebar.selectbox("Scegli il mese:", file_esistenti)
-        dati_mese = carica_mese(scelta)
+        scelta_file = st.sidebar.selectbox("Seleziona il mese da visualizzare:", file_esistenti)
+        dati_mese = carica_mese(scelta_file)
         
-        st.header(f"📅 Impegni di {scelta.replace('.json', '').capitalize()}")
+        nome_mese_pulito = scelta_file.replace('.json', '').capitalize()
+        st.header(f"📅 Programma Eventi - {nome_mese_pulito}")
         
+        trovati = False
         for ev in dati_mese:
-            # L'admin vede tutto, il collaboratore vede solo il suo
+            # L'admin vede tutto, i collaboratori vedono solo dove compare il loro nome
+            # (Il codice controlla il nome con la prima lettera maiuscola)
             if username == "admin" or username.capitalize() in ev["staff"]:
+                trovati = True
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                    st.write(f"*Data:* {ev['data']}")
                     st.write(f"*Team:* {', '.join(ev['staff'])}")
-                    st.button("Conferma Presenza", key=ev['nome']+scelta)
+                    
+                    # Tasto di conferma presenza
+                    if st.button(f"Conferma Presenza per {ev['nome']}", key=ev['nome']+scelta_file):
+                        st.success(f"Grazie {username.capitalize()}, presenza registrata!")
+        
+        if not trovati and username != "admin":
+            st.info(f"Non risultano convocazioni per te nel mese di {nome_mese_pulito}.")
 
-    if st.sidebar.button("Esci"):
+    # Tasto Logout
+    if st.sidebar.button("Esci / Logout"):
         st.session_state.autenticato = False
         st.rerun()
