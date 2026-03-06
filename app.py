@@ -4,43 +4,74 @@ import os
 import requests
 import base64
 import pandas as pd
+import time
 from datetime import datetime
-from io import BytesIO
+from io import BytesIO, StringIO
 
 # --- CONFIGURAZIONE ---
-st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
+st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="📸", layout="centered")
 
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
 utenti = {
-    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
-    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
-    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
-    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
-    "ugo": "ugo90", "valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
-def invia_presenza_a_github(data_ev, evento, collaboratore):
+def gestisci_presenza_github(data_ev, evento, collaboratore, azione="aggiungi"):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     
     res = requests.get(url, headers=headers)
     if res.status_code == 200:
         file_data = res.json()
-        contenuto_vecchio = base64.b64decode(file_data["content"]).decode("utf-8")
+        contenuto_attuale = base64.b64decode(file_data["content"]).decode("utf-8")
         sha = file_data["sha"]
     else:
-        contenuto_vecchio = "Data,Evento,Collaboratore,OraInvio\n"
+        contenuto_attuale = "Data,Evento,Collaboratore,OraInvio\n"
         sha = None
 
-    ora_invio = datetime.now().strftime("%d/%m/%Y %H:%M")
-    nuova_riga = f"{data_ev},{evento},{collaboratore},{ora_invio}\n"
-    nuovo_contenuto = contenuto_vecchio + nuova_riga
+    linee = contenuto_attuale.splitlines()
+    nuove_linee = [linee[0]] # Mantieni intestazione
+    
+    stringa_ricerca = f"{data_ev},{evento},{collaboratore}"
+    trovato = False
+
+    for linea in linee[1:]:
+        if stringa_ricerca in linea:
+            trovato = True
+            if azione == "aggiungi":
+                nuove_linee.append(linea) # Se esiste già e aggiungiamo, la teniamo
+            # Se azione è "rimuovi", semplicemente non la aggiungiamo a nuove_linee
+        else:
+            nuove_linee.append(linea)
+
+    if azione == "aggiungi" and not trovato:
+        ora_invio = datetime.now().strftime("%d/%m/%Y %H:%M")
+        nuove_linee.append(f"{data_ev},{evento},{collaboratore},{ora_invio}")
+
+    nuovo_contenuto = "\n".join(nuove_linee) + "\n"
     
     payload = {
-        "message": f"Conferma da {collaboratore}",
+        "message": f"Modifica presenza: {collaboratore} ({azione})",
         "content": base64.b64encode(nuovo_contenuto.encode("utf-8")).decode("utf-8"),
         "sha": sha
     }
@@ -65,30 +96,17 @@ else:
     username = st.session_state.username
     st.sidebar.title(f"👋 Ciao {username.capitalize()}")
     
-    # --- AREA ADMIN (SOLO PER SIMONE) ---
     if username == "simone":
         st.sidebar.divider()
         st.sidebar.subheader("🛠️ Area Admin")
-        
-        # Scarico i dati correnti per l'admin
         url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
         res_p = requests.get(url_raw)
-        
         if res_p.status_code == 200:
-            from io import StringIO
             df = pd.read_csv(StringIO(res_p.text))
-            
-            # Bottone per scaricare il file Excel
             output = BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name='Presenze')
-            
-            st.sidebar.download_button(
-                label="📥 Scarica Report Excel",
-                data=output.getvalue(),
-                file_name=f"Presenze_Staff_{datetime.now().strftime('%d_%m')}.xlsx",
-                mime="application/vnd.ms-excel"
-            )
+            st.sidebar.download_button(label="📥 Scarica Report Excel", data=output.getvalue(), file_name=f"Presenze_{datetime.now().strftime('%d_%m')}.xlsx", mime="application/vnd.ms-excel")
         st.sidebar.divider()
 
     mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
@@ -109,7 +127,6 @@ else:
             if username == "simone" or username.capitalize() in ev["staff"]:
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                     st.write("*Stato Convocazioni:*")
-                    
                     for persona in ev["staff"]:
                         check = f"{ev['data']},{ev['nome']},{persona.capitalize()}"
                         if check in registro_presenze:
@@ -121,12 +138,19 @@ else:
                     
                     chiave_utente = f"{ev['data']},{ev['nome']},{username.capitalize()}"
                     if chiave_utente not in registro_presenze:
-                        if st.button("CONFERMA PRESENZA", key=ev['nome']+ev['data']+scelta):
-                            invia_presenza_a_github(ev['data'], ev['nome'], username.capitalize())
-                            st.success("Presenza salvata!")
-                            st.rerun()
+                        if st.button("CONFERMA PRESENZA", key="add_"+ev['nome']+ev['data']):
+                            with st.spinner('Salvataggio in corso...'):
+                                gestisci_presenza_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
+                                time.sleep(2) # Pausa per GitHub
+                                st.success("Presenza salvata!")
+                                st.rerun()
                     else:
-                        st.info("Hai già confermato la tua presenza.")
+                        if st.button("❌ ANNULLA DISPONIBILITÀ", key="rem_"+ev['nome']+ev['data']):
+                            with st.spinner('Rimozione in corso...'):
+                                gestisci_presenza_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
+                                time.sleep(2) # Pausa per GitHub
+                                st.warning("Presenza rimossa.")
+                                st.rerun()
 
     if st.sidebar.button("Esci"):
         st.session_state.autenticato = False
