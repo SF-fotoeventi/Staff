@@ -1,6 +1,7 @@
 [
     {"data": "12 Aprile", "nome": "GARA CASTELFIORENTINO", "staff": ["Gianni", "Lorena"]},
-    {"data": "12 Aprile", "nome": "CONCORSO CASTANO", "staff": ["Klaudia", "Simone"]},
+    {"data": "12 Aprile", "nome": "CONCORSO CASTANO", "staff": ["Klaudia", "Simone", "Raffaele"]},
+    {"data": "12 Aprile", "nome": "CONCORSO MILANO", "staff": ["Kristina", "Ugo"]},
     {"data": "19 Aprile", "nome": "CONCORSO ROMA", "staff": ["Francesco", "Chiara"]},
     {"data": "19 Aprile", "nome": "GARA ROMA", "staff": ["Ugo", "Giulia"]},
     {"data": "19 Aprile", "nome": "GARA CONEGLIANO", "staff": ["Cristian", "Thomas"]},
