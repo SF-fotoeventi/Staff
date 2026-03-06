@@ -5,11 +5,24 @@ import os
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
 utenti = {
-    "simone": "boss79", "claudia": "k98", "leonardo": "leo123", "tommaso": "thom00",
-    "gianni": "giani77", "lorena": "lori88", "cristiano": "cris99", "cristina": "cri35",
-    "chiara": "chi34", "francesco": "fra56", "francescon": "fra07", "giulia": "giu04",
-    "kristina": "kri36", "matteo": "mat35", "michela": "mic43", "raffaele": "raf21",
-    "tomas": "tom45", "ugo": "ugo90", "valentina": "va175"
+   "Simone": "boss79",
+    "Klaudia": "kla98",
+    "Leonardo": "leo123",
+    "Gianni": "gia77",
+    "Lorena": "lor88",
+    "Cristian": "cris99",
+    "Cristina": "cri35",
+    "Chiara": "chi34",
+    "Francesco": "fra56",
+    "FrancescoN": "fra07",
+    "Giulia": "giu04",
+    "Kristina": "kri36",
+    "Matteo": "mat35",
+    "Michela": "mic43",
+    "Raffaele": "raf21",
+    "Thomas": "tom45",
+    "Ugo": "ugo90",
+    "Valentina": "val75"
 }
 
 def carica_mese(nome_file):
