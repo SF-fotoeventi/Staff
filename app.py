@@ -87,7 +87,6 @@ if not st.session_state.autenticato:
 else:
     username = st.session_state.username
     
-    # Intestazione Pagina
     col1, col2 = st.columns([0.8, 0.2])
     with col1:
         st.title(f"👋 Ciao {username.capitalize()}!")
@@ -96,7 +95,6 @@ else:
             st.session_state.autenticato = False
             st.rerun()
 
-    # Sezione Admin Simone
     if username == "simone":
         with st.expander("🛠️ AREA AMMINISTRATORE - Scarica Report"):
             df = pd.read_csv(StringIO(st.session_state.registro_locale))
@@ -107,14 +105,15 @@ else:
 
     st.divider()
 
-    # Caricamento di TUTTI i mesi disponibili
-    mesi_files = sorted([f for f in os.listdir() if f.endswith('.json')])
+    # --- ORDINE CRONOLOGICO DEI MESI ---
+    # Definiamo l'ordine manuale per essere sicuri che marzo sia prima di aprile
+    ordine_mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    mesi_presenti = [m for m in ordine_mesi if os.path.exists(m)]
     
-    for mese_file in mesi_files:
+    for mese_file in mesi_presenti:
         with open(mese_file, "r") as f:
             dati_mese = json.load(f)
         
-        # Titolo del Mese
         nome_mese = mese_file.replace(".json", "").capitalize()
         st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
         
