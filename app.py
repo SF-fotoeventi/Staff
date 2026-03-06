@@ -3,12 +3,13 @@ import json
 import os
 import requests
 import base64
+import pandas as pd
 from datetime import datetime
+from io import BytesIO
 
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
-# Recupero segreti da Streamlit Cloud
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
@@ -64,6 +65,32 @@ else:
     username = st.session_state.username
     st.sidebar.title(f"👋 Ciao {username.capitalize()}")
     
+    # --- AREA ADMIN (SOLO PER SIMONE) ---
+    if username == "simone":
+        st.sidebar.divider()
+        st.sidebar.subheader("🛠️ Area Admin")
+        
+        # Scarico i dati correnti per l'admin
+        url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
+        res_p = requests.get(url_raw)
+        
+        if res_p.status_code == 200:
+            from io import StringIO
+            df = pd.read_csv(StringIO(res_p.text))
+            
+            # Bottone per scaricare il file Excel
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Presenze')
+            
+            st.sidebar.download_button(
+                label="📥 Scarica Report Excel",
+                data=output.getvalue(),
+                file_name=f"Presenze_Staff_{datetime.now().strftime('%d_%m')}.xlsx",
+                mime="application/vnd.ms-excel"
+            )
+        st.sidebar.divider()
+
     mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
     esistenti = [m for m in mesi if os.path.exists(m)]
     scelta = st.sidebar.selectbox("Scegli mese:", esistenti)
@@ -72,7 +99,6 @@ else:
         with open(scelta, "r") as f:
             dati = json.load(f)
         
-        # Carichiamo l'elenco delle presenze già inviate per mostrare i pallini
         url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
         res_p = requests.get(url_raw)
         registro_presenze = res_p.text if res_p.status_code == 200 else ""
@@ -80,13 +106,11 @@ else:
         st.header(f"📅 Programma {scelta.replace('.json', '').capitalize()}")
         
         for ev in dati:
-            # Simone vede tutto, gli altri vedono solo i propri eventi
             if username == "simone" or username.capitalize() in ev["staff"]:
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                     st.write("*Stato Convocazioni:*")
                     
                     for persona in ev["staff"]:
-                        # Verifichiamo se questa specifica persona ha confermato questo specifico evento
                         check = f"{ev['data']},{ev['nome']},{persona.capitalize()}"
                         if check in registro_presenze:
                             st.write(f"🟢 {persona} (Confermato)")
@@ -95,7 +119,6 @@ else:
                     
                     st.divider()
                     
-                    # Controllo se l'utente loggato ha già confermato
                     chiave_utente = f"{ev['data']},{ev['nome']},{username.capitalize()}"
                     if chiave_utente not in registro_presenze:
                         if st.button("CONFERMA PRESENZA", key=ev['nome']+ev['data']+scelta):
@@ -103,7 +126,7 @@ else:
                             st.success("Presenza salvata!")
                             st.rerun()
                     else:
-                        st.info("Hai già confermato la tua presenza per questo evento.")
+                        st.info("Hai già confermato la tua presenza.")
 
     if st.sidebar.button("Esci"):
         st.session_state.autenticato = False
