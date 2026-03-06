@@ -7,9 +7,9 @@
     {"data": "15 Marzo", "nome": "GARA CAMAIORE - Day 2", "staff": ["Chiara", "Klaudia", "Francesco"]},
     {"data": "22 Marzo", "nome": "CONCORSO VENEZIA", "staff": ["Simone", "Klaudia", "Cristian"]},
     {"data": "22 Marzo", "nome": "GARA ROMA", "staff": ["Ugo"]},
-    {"data": "29 Marzo", "nome": "CONCORSO MILANO", "staff": ["Kristina", "Francesco", "Matteo"]}
-    {"data": "28-29 Marzo", "nome": "GARA AREZZO", "staff": ["Lorena", "Ugo"]}
-    {"data": "29 Marzo", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Cristian", "Michela"]}
-    {"data": "29 Marzo", "nome": "ACROBATICA", "staff": ["Leonardo", "Walter"]}
+    {"data": "29 Marzo", "nome": "CONCORSO MILANO", "staff": ["Kristina", "Francesco", "Matteo"]},
+    {"data": "28-29 Marzo", "nome": "GARA AREZZO", "staff": ["Lorena", "Ugo"]},
+    {"data": "29 Marzo", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Cristian", "Michela"]},
+    {"data": "29 Marzo", "nome": "ACROBATICA", "staff": ["Leonardo", "Walter"]},
     {"data": "29 Marzo", "nome": "GARA LEGNAGO", "staff": ["", "", ""]}
 ]
