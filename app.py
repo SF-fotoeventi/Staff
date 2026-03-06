@@ -4,25 +4,26 @@ import os
 
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
+# Nomi tutti minuscoli qui per garantire il login corretto
 utenti = {
-    "Simone": "boss79",
-    "Klaudia": "kla98",
-    "Leonardo": "leo123",
-    "Gianni": "gia77",
-    "Lorena": "lor88",
-    "Cristian": "cris99",
-    "Cristina": "cri35",
-    "Chiara": "chi34",
-    "Francesco": "fra56",
-    "FrancescoN": "fra07",
-    "Giulia": "giu04",
-    "Kristina": "kri36",
-    "Matteo": "mat35",
-    "Michela": "mic43",
-    "Raffaele": "raf21",
-    "Thomas": "tom45",
-    "Ugo": "ugo90",
-    "Valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
 def carica_mese(nome_file):
@@ -36,7 +37,7 @@ if "autenticato" not in st.session_state:
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Riservato Staff")
-    user = st.text_input("Nome utente (minuscolo):").lower().strip()
+    user = st.text_input("Nome utente (es: simone):").lower().strip()
     password = st.text_input("Password:", type="password")
     if st.button("Entra"):
         if user in utenti and utenti[user] == password:
@@ -60,11 +61,12 @@ else:
         
         trovati = False
         for ev in dati_mese:
+            # L'admin simone vede tutto, gli altri vedono solo se il loro nome (Capitalized) è nello staff
             if username == "simone" or username.capitalize() in ev["staff"]:
                 trovati = True
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                     st.write(f"*Team:* {', '.join(ev['staff'])}")
-                    # AGGIORNATO: Key unica usando nome + data + file
+                    # KEY UNICA: risolve l'errore rosso 'DuplicateElementKey'
                     st.button("Conferma Presenza", key=ev['nome'] + ev['data'] + scelta_file)
         
         if not trovati and username != "simone":
