@@ -7,7 +7,7 @@ st.set_page_config(page_title="Gestione Staff Sicura", page_icon="🔐")
 # --- DATABASE UTENTI (Password) ---
 # Puoi cambiare le password qui sotto come preferisci
 utenti = {
-    "SF": "boss79",
+    "Simone": "boss79",
     "Klaudia": "k98",
     "Leonardo": "leo123",
     "Thomas": "thom00",
