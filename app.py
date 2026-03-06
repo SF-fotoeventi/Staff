@@ -1,10 +1,18 @@
 import streamlit as st
 import json
 import os
+import requests
+import base64
+from datetime import datetime
 
+# --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
-# Nomi tutti minuscoli qui per garantire il login corretto
+# Recupero segreti da Streamlit Cloud
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+REPO_NAME = st.secrets["REPO_NAME"] # Es: "tuo-utente/tuo-repo"
+FILE_PRESENZE = "presenze.csv"
+
 utenti = {
     "simone": "boss79",
     "klaudia": "kla98",
@@ -26,18 +34,40 @@ utenti = {
     "valentina": "val75"
 }
 
-def carica_mese(nome_file):
-    if os.path.exists(nome_file):
-        with open(nome_file, "r") as f:
-            return json.load(f)
-    return []
+def invia_presenza_a_github(data_ev, evento, collaboratore):
+    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    # 1. Prendo il file attuale per non cancellare le vecchie presenze
+    res = requests.get(url, headers=headers)
+    if res.status_code == 200:
+        file_data = res.json()
+        contenuto_vecchio = base64.b64decode(file_data["content"]).decode("utf-8")
+        sha = file_data["sha"]
+    else:
+        contenuto_vecchio = "Data,Evento,Collaboratore,OraInvio\n"
+        sha = None
 
+    # 2. Aggiungo la nuova riga
+    ora_invio = datetime.now().strftime("%d/%m/%Y %H:%M")
+    nuova_riga = f"{data_ev},{evento},{collaboratore},{ora_invio}\n"
+    nuovo_contenuto = contenuto_vecchio + nuova_riga
+    
+    # 3. Carico tutto su GitHub
+    payload = {
+        "message": f"Conferma da {collaboratore}",
+        "content": base64.b64encode(nuovo_contenuto.encode("utf-8")).decode("utf-8"),
+        "sha": sha
+    }
+    requests.put(url, json=payload, headers=headers)
+
+# --- LOGICA APP ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
 if not st.session_state.autenticato:
-    st.title("🔐 Accesso Riservato Staff")
-    user = st.text_input("Nome utente (es: simone):").lower().strip()
+    st.title("🔐 Accesso Staff")
+    user = st.text_input("Nome utente:").lower().strip()
     password = st.text_input("Password:", type="password")
     if st.button("Entra"):
         if user in utenti and utenti[user] == password:
@@ -49,29 +79,26 @@ if not st.session_state.autenticato:
 else:
     username = st.session_state.username
     st.sidebar.title(f"👋 Ciao {username.capitalize()}")
-    mesi_previsti = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
-    file_esistenti = [m for m in mesi_previsti if os.path.exists(m)]
     
-    if not file_esistenti:
-        st.warning("Nessun piano eventi caricato.")
-    else:
-        scelta_file = st.sidebar.selectbox("Scegli il mese:", file_esistenti)
-        dati_mese = carica_mese(scelta_file)
-        st.header(f"📅 Programma di {scelta_file.replace('.json', '').capitalize()}")
+    # Selezione Mese
+    mesi = ["marzo.json", "aprile.json", "maggio.json"]
+    esistenti = [m for m in mesi if os.path.exists(m)]
+    scelta = st.sidebar.selectbox("Scegli mese:", esistenti)
+    
+    if scelta:
+        with open(scelta, "r") as f:
+            dati = json.load(f)
         
-        trovati = False
-        for ev in dati_mese:
-            # L'admin simone vede tutto, gli altri vedono solo se il loro nome (Capitalized) è nello staff
+        st.header(f"📅 Programma {scelta.capitalize()}")
+        for ev in dati:
             if username == "simone" or username.capitalize() in ev["staff"]:
-                trovati = True
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                     st.write(f"*Team:* {', '.join(ev['staff'])}")
-                    # KEY UNICA: risolve l'errore rosso 'DuplicateElementKey'
-                    st.button("Conferma Presenza", key=ev['nome'] + ev['data'] + scelta_file)
-        
-        if not trovati and username != "simone":
-            st.info("Non ci sono convocazioni per te.")
+                    
+                    if st.button("CONFERMA PRESENZA", key=ev['nome']+ev['data']):
+                        invia_presenza_a_github(ev['data'], ev['nome'], username.capitalize())
+                        st.success("Presenza salvata nel registro!")
 
-    if st.sidebar.button("Esci / Logout"):
+    if st.sidebar.button("Esci"):
         st.session_state.autenticato = False
         st.rerun()
