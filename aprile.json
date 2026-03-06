@@ -1,4 +1,10 @@
 [
-    {"data": "12 Aprile", "nome": "GARA REGIONALE", "staff": ["Gianni", "Lorena"]},
-    {"data": "26 Aprile", "nome": "TROFEO CITTÀ", "staff": ["Klaudia", "Leonardo"]}
+    {"data": "12 Aprile", "nome": "GARA CASTELFIORENTINO", "staff": ["Gianni", "Lorena"]},
+    {"data": "12 Aprile", "nome": "CONCORSO CASTANO", "staff": ["Klaudia", "Simone"]}
+    {"data": "19 Aprile", "nome": "CONCORSO ROMA", "staff": ["Francesco", "Chiara"]}
+    {"data": "19 Aprile", "nome": "GARA ROMA", "staff": ["Ugo", "Giulia"]}
+    {"data": "19 Aprile", "nome": "GARA CONEGLIANO", "staff": ["Cristian", "Tomas"]}
+    {"data": "19 Aprile", "nome": "ACROBATICA", "staff": ["FrancescoN", "Simone", "Klaudia"]}
+    {"data": "19 Aprile", "nome": "GARA LIVORNO", "staff": ["Gianni", "Lorena"]}
+    {"data": "19 Aprile", "nome": "SAGGIO CASTELFIORENTINO", "staff": ["Leonardo"]}
 ]
