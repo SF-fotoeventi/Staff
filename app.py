@@ -5,92 +5,67 @@ import os
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
-# --- DATABASE UTENTI (Nomi e Password) ---
-# Le chiavi (nomi) sono tutte minuscole per il login.
-# Le password sono modificabili in qualsiasi momento.
+# --- DATABASE UTENTI ---
 utenti = {
-    "Simone": "boss79",
-    "Klaudia": "k98",
-    "Leonardo": "leo123",
-    "Thomas": "thom00",
-    "Gianni": "giani77",
-    "Lorena": "lori88",
-    "Cristian": "cris99",
-    "Cristina": "cri35",
-    "Chiara": "chi34",
-    "Francesco": "fra56",
-    "FrancescoN": "fra07",
-    "Giulia": "giu04",
-    "Kristina": "kri36",
-    "Matteo": "mat35",
-    "Michela": "mic43",
-    "Raffaele": "raf21",
-    "Tomas": "tom45",
-    "Ugo": "ugo90",
-    "Valentina": "val75"
+    "simone": "boss79",
+    "claudia": "k98",
+    "leonardo": "leo123",
+    "tommaso": "thom00",
+    "gianni": "giani77",
+    "lorena": "lori88",
+    "cristiano": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "tomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "va175"
 }
 
-# --- FUNZIONE CARICAMENTO DATI ---
 def carica_mese(nome_file):
     if os.path.exists(nome_file):
         with open(nome_file, "r") as f:
             return json.load(f)
     return []
 
-# --- GESTIONE LOGIN ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Riservato Staff")
-    st.write("Inserisci le tue credenziali per vedere gli impegni.")
-    
-    user = st.text_input("Nome utente (tutto minuscolo):").lower().strip()
+    user = st.text_input("Nome utente (minuscolo):").lower().strip()
     password = st.text_input("Password:", type="password")
-    
     if st.button("Entra"):
         if user in utenti and utenti[user] == password:
             st.session_state.autenticato = True
             st.session_state.username = user
             st.rerun()
         else:
-            st.error("Nome utente o password non corretti.")
+            st.error("Credenziali errate.")
 else:
-    # --- APP DOPO IL LOGIN ---
     username = st.session_state.username
     st.sidebar.title(f"👋 Ciao {username.capitalize()}")
-    
-    # Lista dei file mesi che l'app proverà a cercare
-    mesi_previsti = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
-    file_esistenti = [m for m in mesi_previsti if os.path.exists(m)]
+    mesi_disponibili = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    file_esistenti = [m for m in mesi_disponibili if os.path.exists(m)]
     
     if not file_esistenti:
-        st.warning("Nessun piano eventi caricato su GitHub. Contatta l'amministratore.")
+        st.warning("Nessun piano eventi caricato.")
     else:
-        scelta_file = st.sidebar.selectbox("Seleziona il mese da visualizzare:", file_esistenti)
-        dati_mese = carica_mese(scelta_file)
-        
-        nome_mese_pulito = scelta_file.replace('.json', '').capitalize()
-        st.header(f"📅 Programma Eventi - {nome_mese_pulito}")
-        
-        trovati = False
-        for ev in dati_mese:
-            # L'admin vede tutto, i collaboratori vedono solo dove compare il loro nome
-            # (Il codice controlla il nome con la prima lettera maiuscola)
-            if username == "admin" or username.capitalize() in ev["staff"]:
-                trovati = True
+        scelta = st.sidebar.selectbox("Scegli il mese:", file_esistenti)
+        dati = carica_mese(scelta)
+        st.header(f"📅 Programma di {scelta.replace('.json', '').capitalize()}")
+        for ev in dati:
+            if username == "simone" or username.capitalize() in ev["staff"]:
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                    st.write(f"*Data:* {ev['data']}")
                     st.write(f"*Team:* {', '.join(ev['staff'])}")
-                    
-                    # Tasto di conferma presenza
-                    if st.button(f"Conferma Presenza per {ev['nome']}", key=ev['nome']+scelta_file):
-                        st.success(f"Grazie {username.capitalize()}, presenza registrata!")
-        
-        if not trovati and username != "admin":
-            st.info(f"Non risultano convocazioni per te nel mese di {nome_mese_pulito}.")
+                    st.button("Conferma Presenza", key=ev['nome']+scelta)
 
-    # Tasto Logout
-    if st.sidebar.button("Esci / Logout"):
+    if st.sidebar.button("Esci"):
         st.session_state.autenticato = False
         st.rerun()
