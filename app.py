@@ -5,7 +5,7 @@ import os
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
 utenti = {
-   "Simone": "boss79",
+    "Simone": "boss79",
     "Klaudia": "kla98",
     "Leonardo": "leo123",
     "Gianni": "gia77",
