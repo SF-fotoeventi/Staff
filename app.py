@@ -2,30 +2,14 @@ import streamlit as st
 import json
 import os
 
-# --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Gestione Staff FotoEventi", page_icon="🔐", layout="centered")
 
-# --- DATABASE UTENTI ---
 utenti = {
-    "simone": "boss79",
-    "claudia": "k98",
-    "leonardo": "leo123",
-    "tommaso": "thom00",
-    "gianni": "giani77",
-    "lorena": "lori88",
-    "cristiano": "cris99",
-    "cristina": "cri35",
-    "chiara": "chi34",
-    "francesco": "fra56",
-    "francescon": "fra07",
-    "giulia": "giu04",
-    "kristina": "kri36",
-    "matteo": "mat35",
-    "michela": "mic43",
-    "raffaele": "raf21",
-    "tomas": "tom45",
-    "ugo": "ugo90",
-    "valentina": "va175"
+    "simone": "boss79", "claudia": "k98", "leonardo": "leo123", "tommaso": "thom00",
+    "gianni": "giani77", "lorena": "lori88", "cristiano": "cris99", "cristina": "cri35",
+    "chiara": "chi34", "francesco": "fra56", "francescon": "fra07", "giulia": "giu04",
+    "kristina": "kri36", "matteo": "mat35", "michela": "mic43", "raffaele": "raf21",
+    "tomas": "tom45", "ugo": "ugo90", "valentina": "va175"
 }
 
 def carica_mese(nome_file):
@@ -51,21 +35,28 @@ if not st.session_state.autenticato:
 else:
     username = st.session_state.username
     st.sidebar.title(f"👋 Ciao {username.capitalize()}")
-    mesi_disponibili = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
-    file_esistenti = [m for m in mesi_disponibili if os.path.exists(m)]
+    mesi_previsti = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    file_esistenti = [m for m in mesi_previsti if os.path.exists(m)]
     
     if not file_esistenti:
         st.warning("Nessun piano eventi caricato.")
     else:
-        scelta = st.sidebar.selectbox("Scegli il mese:", file_esistenti)
-        dati = carica_mese(scelta)
-        st.header(f"📅 Programma di {scelta.replace('.json', '').capitalize()}")
-        for ev in dati:
+        scelta_file = st.sidebar.selectbox("Scegli il mese:", file_esistenti)
+        dati_mese = carica_mese(scelta_file)
+        st.header(f"📅 Programma di {scelta_file.replace('.json', '').capitalize()}")
+        
+        trovati = False
+        for ev in dati_mese:
             if username == "simone" or username.capitalize() in ev["staff"]:
+                trovati = True
                 with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                     st.write(f"*Team:* {', '.join(ev['staff'])}")
-                    st.button("Conferma Presenza", key=ev['nome']+scelta)
+                    # AGGIORNATO: Key unica usando nome + data + file
+                    st.button("Conferma Presenza", key=ev['nome'] + ev['data'] + scelta_file)
+        
+        if not trovati and username != "simone":
+            st.info("Non ci sono convocazioni per te.")
 
-    if st.sidebar.button("Esci"):
+    if st.sidebar.button("Esci / Logout"):
         st.session_state.autenticato = False
         st.rerun()
