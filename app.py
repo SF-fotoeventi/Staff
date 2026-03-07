@@ -38,7 +38,11 @@ utenti = {
 
 def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "Cache-Control": "no-cache"
+    }
     res = requests.get(url, headers=headers)
     
     if res.status_code == 200:
@@ -67,9 +71,9 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# Caricamento presenze aggiornato
+# Download presenze con bypass cache
 url_raw_presenze = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
-res_p = requests.get(url_raw_presenze)
+res_p = requests.get(url_raw_presenze, headers={"Cache-Control": "no-cache"})
 st.session_state.registro_locale = res_p.text if res_p.status_code == 200 else ""
 
 if not st.session_state.autenticato:
@@ -97,13 +101,12 @@ else:
         with st.expander("🛠️ AREA AMMINISTRATORE"):
             try:
                 df = pd.read_csv(StringIO(st.session_state.registro_locale))
-                st.download_button("📥 SCARICA EXCEL", df.to_csv(index=False).encode('utf-8'), "Report.csv")
+                st.download_button("📥 SCARICA CSV", df.to_csv(index=False).encode('utf-8'), "Report.csv")
             except:
                 st.write("Nessun dato presente.")
 
     st.divider()
 
-    # --- LISTA MESI DELL'ANNO ---
     mesi_anno = [
         "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
@@ -112,22 +115,20 @@ else:
     for mese in mesi_anno:
         mese_file = f"{mese}.json"
         url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese_file}"
-        res = requests.get(url_mese)
+        # Forziamo il bypass della cache anche qui
+        res = requests.get(url_mese, headers={"Cache-Control": "no-cache"})
         
         if res.status_code == 200:
             try:
                 dati_mese = res.json()
-                
-                # SE IL FILE È VUOTO O NON CONTIENE EVENTI, NON MOSTRARE NULLA
                 if not dati_mese or len(dati_mese) == 0:
                     continue
                 
                 st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
                 
                 for ev in dati_mese:
-                    # Filtro visibilità
-                    staff_norm = [s.strip().capitalize() for s in ev.get("staff", [])]
-                    if username == "simone" or username.capitalize() in staff_norm:
+                    staff_norm = [s.strip().lower() for s in ev.get("staff", [])]
+                    if username == "simone" or username.lower() in staff_norm:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                             for p in ev["staff"]:
                                 p_cap = p.strip().capitalize()
@@ -148,4 +149,4 @@ else:
                                     aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
                                     st.rerun()
             except Exception:
-                continue # Se il JSON è formattato male, salta il mese
+                continue
