@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 import time
 
-# --- CONFIGURAZIONE GRAFICA ---
+# --- CONFIGURAZIONE INTERFACCIA ---
 st.set_page_config(page_title="Staff FotoEventi", layout="wide")
 
 st.markdown("""
@@ -38,6 +38,7 @@ utenti = {
     "ugo": "ugo90", "valentina": "val75"
 }
 
+# --- FUNZIONI DI SINCRONIZZAZIONE ---
 def scarica_registro():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
@@ -54,25 +55,37 @@ def salva_su_github(data_ev, evento, nome, azione):
     res = requests.get(url, headers=headers)
     cont = base64.b64decode(res.json()["content"]).decode("utf-8") if res.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
     sha = res.json()["sha"] if res.status_code == 200 else None
+    
     linee = cont.splitlines()
-    nuove_linee = [linee[0]]
+    header = linee[0]
+    nuove_linee = [header]
     chiave = f"{data_ev},{evento},{nome}"
+    
     for l in linee[1:]:
         if chiave not in l: nuove_linee.append(l)
+    
     if azione == "aggiungi":
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    payload = {"message": f"{azione} {nome}", "content": base64.b64encode(("\n".join(nuove_linee)+"\n").encode("utf-8")).decode("utf-8"), "sha": sha}
+    
+    payload = {
+        "message": f"{azione} {nome}",
+        "content": base64.b64encode(("\n".join(nuove_linee)+"\n").encode("utf-8")).decode("utf-8"),
+        "sha": sha
+    }
     requests.put(url, json=payload, headers=headers)
 
-# --- LOGICA APP ---
-if "autenticato" not in st.session_state: st.session_state.autenticato = False
-if "cache" not in st.session_state: st.session_state.cache = scarica_registro()
+# --- LOGICA APPLICATIVA ---
+if "autenticato" not in st.session_state:
+    st.session_state.autenticato = False
+
+if "cache" not in st.session_state:
+    st.session_state.cache = scarica_registro()
 
 if not st.session_state.autenticato:
-    st.title("🔐 Login Staff")
-    u = st.text_input("Nome:").lower().strip()
+    st.title("🔐 Login Staff FotoEventi")
+    u = st.text_input("Username:").lower().strip()
     p = st.text_input("Password:", type="password")
-    if st.button("ENTRA"):
+    if st.button("ACCEDI"):
         if u in utenti and utenti[u] == p:
             st.session_state.autenticato, st.session_state.username = True, u
             st.rerun()
@@ -84,48 +97,4 @@ else:
     for m in mesi:
         url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
         res_m = requests.get(url_m)
-        if res_m.status_code == 200:
-            try:
-                eventi = res_m.json()
-                st.markdown(f'<div class="month-header"><h3>📅 {m.upper()}</h3></div>', unsafe_allow_html=True)
-                for ev in eventi:
-                    staff_evento = [s.strip().lower() for s in ev.get("staff", [])]
-                    if st.session_state.username == "simone" or st.session_state.username in staff_evento:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            
-                            # ORDINE TASSOSTATIVO E PALLINI
-                            for n_fisso in ordine_tassativo:
-                                if n_fisso.lower() in staff_evento:
-                                    chiave = f"{ev['data']},{ev['nome']},{n_fisso}"
-                                    # Il pallino reagisce alla cache locale per essere istantaneo
-                                    if chiave in st.session_state.cache:
-                                        st.write(f"🟢 *{n_fisso}*")
-                                    else:
-                                        st.write(f"🔴 {n_fisso}")
-                            
-                            st.divider()
-                            mio_nome = st.session_state.username.capitalize()
-                            mia_chiave = f"{ev['data']},{ev['nome']},{mio_nome}"
-                            
-                            # LOGICA CLICK SINGOLO
-                            if mia_chiave in st.session_state.cache:
-                                if st.button("❌ ANNULLA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
-                                    # 1. Aggiorno subito la visualizzazione (diventa rosso)
-                                    st.session_state.cache = st.session_state.cache.replace(f"{mia_chiave},", "OFF,")
-                                    # 2. Salvo su GitHub in background
-                                    salva_su_github(ev['data'], ev['nome'], mio_nome, "rimuovi")
-                                    # 3. Rinfresco la pagina per confermare lo stato
-                                    st.rerun()
-                            else:
-                                if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
-                                    # 1. Aggiorno subito la visualizzazione (diventa verde)
-                                    st.session_state.cache += f"{mia_chiave},{datetime.now()}\n"
-                                    # 2. Salvo su GitHub
-                                    salva_su_github(ev['data'], ev['nome'], mio_nome, "aggiungi")
-                                    # 3. Rinfresco
-                                    st.rerun()
-            except: continue
-
-    if st.button("Esci"):
-        st.session_state.autenticato = False
-        st.rerun()
+        if res_m.status_code == 20
