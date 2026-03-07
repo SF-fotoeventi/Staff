@@ -74,7 +74,7 @@ def salva_su_github(data_ev, evento, nome, azione):
     }
     requests.put(url, json=payload, headers=headers)
 
-# --- LOGICA APPLICATIVA ---
+# --- LOGICA APP ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
@@ -82,7 +82,7 @@ if "cache" not in st.session_state:
     st.session_state.cache = scarica_registro()
 
 if not st.session_state.autenticato:
-    st.title("🔐 Login Staff FotoEventi")
+    st.title("🔐 Login Staff")
     u = st.text_input("Username:").lower().strip()
     p = st.text_input("Password:", type="password")
     if st.button("ACCEDI"):
@@ -91,10 +91,4 @@ if not st.session_state.autenticato:
             st.rerun()
         else: st.error("Accesso negato")
 else:
-    st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
-    
-    mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-    for m in mesi:
-        url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
-        res_m = requests.get(url_m)
-        if res_m.status_code == 20
+    st.title(f"
