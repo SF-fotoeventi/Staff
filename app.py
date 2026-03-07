@@ -10,6 +10,7 @@ from io import BytesIO, StringIO
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Staff FotoEventi", page_icon="📸", layout="wide")
 
+# Nascondo sidebar e sistemo grafica
 st.markdown("""
     <style>
         [data-testid="stSidebar"] {display: none;}
@@ -29,7 +30,7 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# --- ORDINE COLLABORATORI TASSOSTATIVO ---
+# --- ORDINE COLLABORATORI TASSOSTATIVO (Come da tua foto) ---
 utenti = {
     "simone": "boss79",
     "klaudia": "kla98",
@@ -53,17 +54,15 @@ utenti = {
 
 # --- FUNZIONI DI SINCRONIZZAZIONE ---
 def scarica_registro_api():
+    # Uso le API per saltare la cache di GitHub e avere dati reali
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-    try:
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200:
-            return base64.b64decode(res.json()["content"]).decode("utf-8")
-    except:
-        pass
+    res = requests.get(url, headers=headers)
+    if res.status_code == 200:
+        return base64.b64decode(res.json()["content"]).decode("utf-8")
     return "Data,Evento,Collaboratore,OraInvio\n"
 
-def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
+def invia_a_github(data_ev, evento, collaboratore, azione="aggiungi"):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     res = requests.get(url, headers=headers)
@@ -99,7 +98,7 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# Scarico dati reali all'avvio
+# Caricamento dati iniziale
 if "registro_locale" not in st.session_state:
     st.session_state.registro_locale = scarica_registro_api()
 
@@ -115,12 +114,12 @@ if not st.session_state.autenticato:
         else:
             st.error("Credenziali errate.")
 else:
-    username = st.session_state.username
-    col1, col2 = st.columns([0.7, 0.3])
-    with col1:
-        st.title(f"👋 Ciao {username.capitalize()}!")
-    with col2:
-        # Pulsante manuale sempre visibile
+    # --- HEADER ---
+    col_t1, col_t2 = st.columns([0.7, 0.3])
+    with col_t1:
+        st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
+    with col_t2:
+        # Pulsante Aggiorna Dati (Mantenuto come richiesto)
         if st.button("Aggiorna Dati 🔄"):
             st.session_state.registro_locale = scarica_registro_api()
             st.rerun()
@@ -128,16 +127,9 @@ else:
             st.session_state.autenticato = False
             st.rerun()
 
-    if username == "simone":
-        with st.expander("🛠️ AREA AMMINISTRATORE"):
-            df = pd.read_csv(StringIO(st.session_state.registro_locale))
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
-                df.to_excel(wr, index=False)
-            st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
-
     st.divider()
 
+    # --- PROGRAMMA ---
     ordine_mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     
     for mese in ordine_mesi:
@@ -145,43 +137,42 @@ else:
         res_m = requests.get(url_mese)
         
         if res_m.status_code == 200:
-            try:
-                dati_mese = res_m.json()
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
-                
-                for ev in dati_mese:
-                    # Filtro staff per visualizzazione
-                    staff_pulito = [s.strip().lower() for s in ev.get("staff", []) if s.strip()]
+            dati_mese = res_m.json()
+            st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
+            
+            for ev in dati_mese:
+                # Mostra l'evento se l'utente è Simone o è nello staff dell'evento
+                staff_evento = [s.strip().lower() for s in ev.get("staff", [])]
+                if st.session_state.username == "simone" or st.session_state.username in staff_evento:
                     
-                    if username == "simone" or username in staff_pulito:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            
-                            # MOSTRA I COLLABORATORI NELL'ORDINE CORRETTO
-                            for coll in utenti.keys():
-                                if coll.capitalize() in [s.strip().capitalize() for s in ev["staff"]]:
-                                    p_cap = coll.capitalize()
-                                    chiave_check = f"{ev['data']},{ev['nome']},{p_cap}"
-                                    
-                                    if chiave_check in st.session_state.registro_locale:
-                                        st.write(f"🟢 {p_cap} (Confermato)")
-                                    else:
-                                        st.write(f"🔴 {p_cap} (In attesa...)")
-                            
-                            st.divider()
-                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            
-                            # AZIONI ISTANTANEE
-                            if chiave_u in st.session_state.registro_locale:
-                                if st.button("❌ ANNULLA", key=f"rem_{mese}{ev['nome']}{ev['data']}"):
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
-                                    # Update istantaneo locale del pallino
-                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(f"{chiave_u},", "RIMOSSO,")
-                                    st.rerun()
-                            else:
-                                if st.button("✅ CONFERMA", key=f"add_{mese}{ev['nome']}{ev['data']}"):
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                    # Update istantaneo locale del pallino
-                                    st.session_state.registro_locale += f"{chiave_u},{datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-                                    st.rerun()
-            except:
-                continue
+                    with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                        # LISTA COLLABORATORI NELL'ORDINE CORRETTO
+                        for nome_staff in utenti.keys():
+                            # Controlla se questo collaboratore della lista fissa è previsto per questo evento
+                            if nome_staff.capitalize() in [s.strip().capitalize() for s in ev["staff"]]:
+                                p_cap = nome_staff.capitalize()
+                                chiave_c = f"{ev['data']},{ev['nome']},{p_cap}"
+                                
+                                # Verifica tempo reale sul registro locale
+                                if chiave_c in st.session_state.registro_locale:
+                                    st.write(f"🟢 {p_cap} (Confermato)")
+                                else:
+                                    st.write(f"🔴 {p_cap} (In attesa...)")
+                        
+                        st.divider()
+                        
+                        # LOGICA PULSANTI ISTANTANEI
+                        chiave_u = f"{ev['data']},{ev['nome']},{st.session_state.username.capitalize()}"
+                        
+                        if chiave_u in st.session_state.registro_locale:
+                            if st.button("❌ ANNULLA", key=f"btn_rem_{mese}{ev['nome']}{ev['data']}"):
+                                invia_a_github(ev['data'], ev['nome'], st.session_state.username.capitalize(), "rimuovi")
+                                # Aggiornamento locale IMMEDIATO per cambiare il pallino senza refresh manuale
+                                st.session_state.registro_locale = st.session_state.registro_locale.replace(f"{chiave_u},", "ANNULLATO,")
+                                st.rerun()
+                        else:
+                            if st.button("✅ CONFERMA", key=f"btn_add_{mese}{ev['nome']}{ev['data']}"):
+                                invia_a_github(ev['data'], ev['nome'], st.session_state.username.capitalize(), "aggiungi")
+                                # Aggiornamento locale IMMEDIATO del pallino
+                                st.session_state.registro_locale += f"{chiave_u},{datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+                                st.rerun()
