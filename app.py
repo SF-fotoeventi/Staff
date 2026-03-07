@@ -116,39 +116,48 @@ else:
 
     st.divider()
 
-    # --- FILTRO SICUREZZA ---
-    ordine_mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    # --- NUOVA LOGICA DI CARICAMENTO AUTOMATICO ---
+    # Cerchiamo tutti i file .json nella cartella dell'app
+    file_nel_folder = [f for f in os.listdir('.') if f.endswith('.json')]
     
-    for mese_file in ordine_mesi:
-        if os.path.exists(mese_file):
-            try:
-                with open(mese_file, "r") as f:
-                    dati_mese = json.load(f)
-                
-                nome_mese = mese_file.replace(".json", "").capitalize()
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
-                
-                for ev in dati_mese:
-                    if username == "simone" or username.capitalize() in ev["staff"]:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            for p in ev["staff"]:
-                                check = f"{ev['data']},{ev['nome']},{p.capitalize()}"
-                                icona = "🟢" if check in st.session_state.registro_locale else "🔴"
-                                stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
-                                st.write(f"{icona} {p} ({stato})")
-                            
-                            st.divider()
-                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            if chiave_u not in st.session_state.registro_locale:
-                                if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale += chiave_u + "\n"
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                    st.rerun()
-                            else:
-                                if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
-                                    st.rerun()
-            except Exception as e:
-                # Se un file ha problemi (es. è vuoto), lo ignora e passa al prossimo senza crashare
-                continue
+    # Definiamo l'ordine corretto dei mesi per la visualizzazione
+    ordine_mesi_rif = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", 
+                       "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+    
+    # Ordiniamo i file trovati in base alla lista di riferimento
+    file_trovati = sorted(file_nel_folder, 
+                          key=lambda x: ordine_mesi_rif.index(x.replace('.json', '').lower()) 
+                          if x.replace('.json', '').lower() in ordine_mesi_rif else 99)
+
+    for mese_file in file_trovati:
+        try:
+            with open(mese_file, "r") as f:
+                dati_mese = json.load(f)
+            
+            nome_mese = mese_file.replace(".json", "").capitalize()
+            st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
+            
+            for ev in dati_mese:
+                # Verifica se l'utente deve vedere l'evento
+                if username == "simone" or (username.capitalize() in [s.capitalize() for s in ev["staff"]]):
+                    with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                        for p in ev["staff"]:
+                            check = f"{ev['data']},{ev['nome']},{p.strip().capitalize()}"
+                            icona = "🟢" if check in st.session_state.registro_locale else "🔴"
+                            stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
+                            st.write(f"{icona} {p} ({stato})")
+                        
+                        st.divider()
+                        chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
+                        if chiave_u not in st.session_state.registro_locale:
+                            if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
+                                st.session_state.registro_locale += chiave_u + "\n"
+                                aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
+                                st.rerun()
+                        else:
+                            if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
+                                st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
+                                aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
+                                st.rerun()
+        except Exception as e:
+            continue
