@@ -7,7 +7,7 @@ from datetime import datetime
 import time 
 from io import BytesIO, StringIO
 
-# --- CONFIGURAZIONE GRAFICA ---
+# --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Staff FotoEventi", page_icon="📸", layout="wide")
 
 st.markdown("""
@@ -31,14 +31,26 @@ FILE_PRESENZE = "presenze.csv"
 
 # --- ORDINE COLLABORATORI TASSOSTATIVO (Dalla tua foto) ---
 utenti = {
-    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
-    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
-    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
-    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
-    "ugo": "ugo90", "valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
-# --- FUNZIONI SINCRONIZZAZIONE ---
 def scarica_registro_fresco():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -54,29 +66,23 @@ def scrivi_github(data_ev, evento, collaboratore, azione="aggiungi"):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     res = requests.get(url, headers=headers)
-    
     cont = base64.b64decode(res.json()["content"]).decode("utf-8") if res.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
     sha = res.json()["sha"] if res.status_code == 200 else None
-
     linee = cont.splitlines()
     nuove_linee = [linee[0]]
     chiave = f"{data_ev},{evento},{collaboratore}"
-    
     for l in linee[1:]:
         if chiave not in l: nuove_linee.append(l)
-    
     if azione == "aggiungi":
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
-
     nuovo_cont = "\n".join(nuove_linee) + "\n"
     payload = {"message": f"{azione} {collaboratore}", "content": base64.b64encode(nuovo_cont.encode("utf-8")).decode("utf-8"), "sha": sha}
     requests.put(url, json=payload, headers=headers)
 
-# --- LOGICA CORE ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# Scarica dati API all'avvio
+# Caricamento iniziale dei dati
 if "reg_cache" not in st.session_state:
     st.session_state.reg_cache = scarica_registro_fresco()
 
@@ -90,11 +96,10 @@ if not st.session_state.autenticato:
             st.rerun()
         else: st.error("Credenziali errate.")
 else:
-    # --- HEADER ---
     c1, c2 = st.columns([0.7, 0.3])
     with c1: st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
     with c2:
-        if st.button("Aggiorna Dati 🔄"): # Pulsante manuale mantenuto
+        if st.button("Aggiorna Dati 🔄"):
             st.session_state.reg_cache = scarica_registro_fresco()
             st.rerun()
         if st.button("Esci"):
@@ -103,37 +108,4 @@ else:
 
     st.divider()
 
-    mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-    for m in mesi:
-        url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
-        res_m = requests.get(url_m)
-        if res_m.status_code == 200:
-            dati_m = res_m.json()
-            st.markdown(f'<div class="month-header"><h3>📅 Programma {m.capitalize()}</h3></div>', unsafe_allow_html=True)
-            for ev in dati_m:
-                staff_ev = [s.strip().lower() for s in ev.get("staff", [])]
-                if st.session_state.username == "simone" or st.session_state.username in staff_ev:
-                    with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                        # ORDINE COLLABORATORI FISSO DA FOTO
-                        for nome in utenti.keys():
-                            if nome.capitalize() in [s.strip().capitalize() for s in ev["staff"]]:
-                                n_cap = nome.capitalize()
-                                chiave = f"{ev['data']},{ev['nome']},{n_cap}"
-                                if chiave in st.session_state.reg_cache:
-                                    st.write(f"🟢 {n_cap} (Confermato)")
-                                else: st.write(f"🔴 {n_cap} (In attesa...)")
-                        
-                        st.divider()
-                        chiave_u = f"{ev['data']},{ev['nome']},{st.session_state.username.capitalize()}"
-                        
-                        # LOGICA TEMPO REALE AUTOMATICA
-                        if chiave_u in st.session_state.reg_cache:
-                            if st.button("❌ ANNULLA", key=f"del_{m}{ev['nome']}{ev['data']}"):
-                                scrivi_github(ev['data'], ev['nome'], st.session_state.username.capitalize(), "rimuovi")
-                                st.session_state.reg_cache = st.session_state.reg_cache.replace(f"{chiave_u},", "REMOVE,")
-                                st.rerun()
-                        else:
-                            if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
-                                scrivi_github(ev['data'], ev['nome'], st.session_state.username.capitalize(), "aggiungi")
-                                st.session_state.reg_cache += f"{chiave_u},{datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-                                st.rerun()
+    mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto
