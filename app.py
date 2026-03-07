@@ -1,11 +1,10 @@
 import streamlit as st
-import json
 import requests
 import base64
 from datetime import datetime
 import time
 
-# --- CONFIGURAZIONE ---
+# --- CONFIGURAZIONE INTERFACCIA ---
 st.set_page_config(page_title="Staff FotoEventi", page_icon="📸", layout="wide")
 
 st.markdown("""
@@ -20,7 +19,7 @@ st.markdown("""
             margin-bottom: 20px;
             margin-top: 40px;
         }
-        .stButton>button {width: 100%; border-radius: 8px; height: 3em; font-weight: bold;}
+        .stButton>button {width: 100%; border-radius: 8px; font-weight: bold; height: 3em;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -28,8 +27,9 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# --- ORDINE COLLABORATORI TASSOSTATIVO (Dalla tua immagine) ---
-ordine_staff_tassativo = [
+# --- ORDINE COLLABORATORI TASSOSTATIVO (Dalla tua foto) ---
+# Questa lista comanda l'ordine di apparizione sotto ogni evento.
+ordine_tassativo = [
     "Simone", "Klaudia", "Leonardo", "Gianni", "Lorena", "Cristian", 
     "Cristina", "Chiara", "Francesco", "Francescon", "Giulia", 
     "Kristina", "Matteo", "Michela", "Raffaele", "Thomas", "Ugo", "Valentina"
@@ -43,8 +43,8 @@ utenti = {
     "ugo": "ugo90", "valentina": "val75"
 }
 
-# --- FUNZIONI DI SINCRONIZZAZIONE ---
-def get_registro_totale():
+# --- FUNZIONI DI COMUNICAZIONE ---
+def scarica_registro():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     try:
@@ -54,7 +54,7 @@ def get_registro_totale():
     except: pass
     return "Data,Evento,Collaboratore,OraInvio\n"
 
-def aggiorna_presenza_remota(data_ev, evento, nome_staff, azione="aggiungi"):
+def scrivi_presenza(data_ev, evento, nome, azione):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     res = requests.get(url, headers=headers)
@@ -62,9 +62,8 @@ def aggiorna_presenza_remota(data_ev, evento, nome_staff, azione="aggiungi"):
     sha = res.json()["sha"] if res.status_code == 200 else None
     
     linee = cont.splitlines()
-    header = linee[0]
-    nuove_linee = [header]
-    chiave = f"{data_ev},{evento},{nome_staff}"
+    nuove_linee = [linee[0]]
+    chiave = f"{data_ev},{evento},{nome}"
     
     for l in linee[1:]:
         if chiave not in l: nuove_linee.append(l)
@@ -72,10 +71,9 @@ def aggiorna_presenza_remota(data_ev, evento, nome_staff, azione="aggiungi"):
     if azione == "aggiungi":
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
     
-    nuovo_cont_str = "\n".join(nuove_linee) + "\n"
     payload = {
-        "message": f"Update: {azione} {nome_staff}",
-        "content": base64.b64encode(nuovo_cont_str.encode("utf-8")).decode("utf-8"),
+        "message": f"{azione} {nome}",
+        "content": base64.b64encode(("\n".join(nuove_linee)+"\n").encode("utf-8")).decode("utf-8"),
         "sha": sha
     }
     requests.put(url, json=payload, headers=headers)
@@ -83,15 +81,66 @@ def aggiorna_presenza_remota(data_ev, evento, nome_staff, azione="aggiungi"):
 # --- LOGICA APP ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
-if "local_reg" not in st.session_state:
-    st.session_state.local_reg = get_registro_totale()
+
+if "cache_registro" not in st.session_state:
+    st.session_state.cache_registro = scarica_registro()
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff")
     u = st.text_input("Username:").lower().strip()
     p = st.text_input("Password:", type="password")
-    if st.button("Accedi"):
+    if st.button("ACCEDI"):
         if u in utenti and utenti[u] == p:
             st.session_state.autenticato, st.session_state.username = True, u
             st.rerun()
-        else: st.error("Credenziali non valide
+        else: st.error("Dati errati")
+else:
+    # Header semplice senza pulsante aggiorna
+    c1, c2 = st.columns([0.8, 0.2])
+    with c1: st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
+    with c2: 
+        if st.button("Esci"):
+            st.session_state.autenticato = False
+            st.rerun()
+
+    st.divider()
+
+    mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+    for m in mesi:
+        url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
+        res_m = requests.get(url_m)
+        if res_m.status_code == 200:
+            try:
+                eventi = res_m.json()
+                st.markdown(f'<div class="month-header"><h3>📅 {m.upper()}</h3></div>', unsafe_allow_html=True)
+                for ev in eventi:
+                    staff_basso = [s.strip().lower() for s in ev.get("staff", [])]
+                    # Simone vede tutto, gli altri solo se sono in lista
+                    if st.session_state.username == "simone" or st.session_state.username in staff_basso:
+                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                            
+                            # ORDINE COLLABORATORI TASSOSTATIVO
+                            for nome_fisso in ordine_tassativo:
+                                if nome_fisso.lower() in staff_basso:
+                                    chiave_p = f"{ev['data']},{ev['nome']},{nome_fisso}"
+                                    if chiave_p in st.session_state.cache_registro:
+                                        st.write(f"🟢 *{nome_fisso}*")
+                                    else:
+                                        st.write(f"🔴 {nome_fisso}")
+                            
+                            st.divider()
+                            mio_nome = st.session_state.username.capitalize()
+                            chiave_mia = f"{ev['data']},{ev['nome']},{mio_nome}"
+                            
+                            # CLICK SINGOLO: CAMBIO STATO ISTANTANEO
+                            if chiave_mia in st.session_state.cache_registro:
+                                if st.button("❌ ANNULLA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
+                                    st.session_state.cache_registro = st.session_state.cache_registro.replace(f"{chiave_mia},", "OFF,")
+                                    scrivi_presenza(ev['data'], ev['nome'], mio_nome, "rimuovi")
+                                    st.rerun()
+                            else:
+                                if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
+                                    st.session_state.cache_registro += f"{chiave_mia},{datetime.now()}\n"
+                                    scrivi_presenza(ev['data'], ev['nome'], mio_nome, "aggiungi")
+                                    st.rerun()
+            except: continue
