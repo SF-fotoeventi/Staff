@@ -81,7 +81,8 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 if "registro_locale" not in st.session_state:
-    url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
+import time
+url_p = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={int(time.time())}"
     res = requests.get(url_raw)
     st.session_state.registro_locale = res.text if res.status_code == 200 else ""
 
