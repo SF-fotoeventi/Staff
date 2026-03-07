@@ -4,18 +4,18 @@ import base64
 from datetime import datetime
 import time
 
-# --- CONFIGURAZIONE ---
+# --- CONFIGURAZIONE GRAFICA ---
 st.set_page_config(page_title="Staff FotoEventi", layout="wide")
 
-# CSS per pallini e bottoni
 st.markdown("""
     <style>
         [data-testid="stSidebar"] {display: none;}
+        .main {margin-top: -50px;}
         .month-header {
             background: #f0f2f6; padding: 10px; border-radius: 10px;
             border-left: 5px solid #ff4b4b; margin: 20px 0;
         }
-        .stButton>button {width: 100%; border-radius: 8px; font-weight: bold; height: 3em;}
+        .stButton>button {width: 100%; border-radius: 8px; font-weight: bold; height: 3.5em;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,7 +64,7 @@ def salva_su_github(data_ev, evento, nome, azione):
     payload = {"message": f"{azione} {nome}", "content": base64.b64encode(("\n".join(nuove_linee)+"\n").encode("utf-8")).decode("utf-8"), "sha": sha}
     requests.put(url, json=payload, headers=headers)
 
-# --- LOGICA CORE ---
+# --- LOGICA APP ---
 if "autenticato" not in st.session_state: st.session_state.autenticato = False
 if "cache" not in st.session_state: st.session_state.cache = scarica_registro()
 
@@ -78,7 +78,6 @@ if not st.session_state.autenticato:
             st.rerun()
         else: st.error("Accesso negato")
 else:
-    # Interfaccia pulita senza tasti inutili
     st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
     
     mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
@@ -93,29 +92,37 @@ else:
                     staff_evento = [s.strip().lower() for s in ev.get("staff", [])]
                     if st.session_state.username == "simone" or st.session_state.username in staff_evento:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            # LISTA COLLABORATORI ORDINATA
+                            
+                            # ORDINE TASSOSTATIVO E PALLINI
                             for n_fisso in ordine_tassativo:
                                 if n_fisso.lower() in staff_evento:
                                     chiave = f"{ev['data']},{ev['nome']},{n_fisso}"
+                                    # Il pallino reagisce alla cache locale per essere istantaneo
                                     if chiave in st.session_state.cache:
-                                        st.write(f"🟢 *{n_fisso}* (Confermato)")
+                                        st.write(f"🟢 *{n_fisso}*")
                                     else:
-                                        st.write(f"🔴 {n_fisso} (In attesa)")
+                                        st.write(f"🔴 {n_fisso}")
                             
                             st.divider()
                             mio_nome = st.session_state.username.capitalize()
                             mia_chiave = f"{ev['data']},{ev['nome']},{mio_nome}"
                             
-                            # SINGOLO CLICK REATTIVO
+                            # LOGICA CLICK SINGOLO
                             if mia_chiave in st.session_state.cache:
-                                if st.button("❌ ANNULLA PRESENZA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
+                                if st.button("❌ ANNULLA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
+                                    # 1. Aggiorno subito la visualizzazione (diventa rosso)
                                     st.session_state.cache = st.session_state.cache.replace(f"{mia_chiave},", "OFF,")
+                                    # 2. Salvo su GitHub in background
                                     salva_su_github(ev['data'], ev['nome'], mio_nome, "rimuovi")
+                                    # 3. Rinfresco la pagina per confermare lo stato
                                     st.rerun()
                             else:
-                                if st.button("✅ CONFERMA PRESENZA", key=f"add_{m}{ev['nome']}{ev['data']}"):
+                                if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
+                                    # 1. Aggiorno subito la visualizzazione (diventa verde)
                                     st.session_state.cache += f"{mia_chiave},{datetime.now()}\n"
+                                    # 2. Salvo su GitHub
                                     salva_su_github(ev['data'], ev['nome'], mio_nome, "aggiungi")
+                                    # 3. Rinfresco
                                     st.rerun()
             except: continue
 
