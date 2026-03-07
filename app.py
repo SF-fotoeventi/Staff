@@ -1,10 +1,11 @@
 import streamlit as st
 import json
+import os
 import requests
 import base64
 import pandas as pd
 from datetime import datetime
-from io import StringIO
+from io import BytesIO, StringIO
 
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Staff FotoEventi", page_icon="📸", layout="wide")
@@ -66,34 +67,23 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
     nuove_linee = [linee[0]]
     chiave = f"{data_ev},{evento},{collaboratore}"
     
-    found = False
     for l in linee[1:]:
-        if chiave in l:
-            found = True
-            if azione == "aggiungi":
-                nuove_linee.append(l) # Mantiene se già c'è
-            # Se azione è "rimuovi", non la aggiunge (quindi la elimina)
-        else:
+        if chiave not in l:
             nuove_linee.append(l)
     
-    if azione == "aggiungi" and not found:
+    if azione == "aggiungi":
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
     nuovo_cont = "\n".join(nuove_linee) + "\n"
-    payload = {
-        "message": f"{azione} {collaboratore}", 
-        "content": base64.b64encode(nuovo_cont.encode("utf-8")).decode("utf-8"), 
-        "sha": sha
-    }
+    payload = {"message": f"{azione} {collaboratore}", "content": base64.b64encode(nuovo_cont.encode("utf-8")).decode("utf-8"), "sha": sha}
     requests.put(url, json=payload, headers=headers)
 
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
-
-# Scarica registro sempre fresco
-url_p = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
-res_p = requests.get(url_p, headers={"Cache-Control": "no-cache"})
-st.session_state.registro_locale = res_p.text if res_p.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
+if "registro_locale" not in st.session_state:
+    url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
+    res = requests.get(url_raw)
+    st.session_state.registro_locale = res.text if res.status_code == 200 else ""
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff FotoEventi")
@@ -116,45 +106,49 @@ else:
             st.session_state.autenticato = False
             st.rerun()
 
+    if username == "simone":
+        with st.expander("🛠️ AREA AMMINISTRATORE"):
+            df = pd.read_csv(StringIO(st.session_state.registro_locale))
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
+                df.to_excel(wr, index=False)
+            st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
+
     st.divider()
 
-    mesi_anno = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-
-    for mese in mesi_anno:
-        url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json"
-        res_m = requests.get(url_m, headers={"Cache-Control": "no-cache"})
-        
-        if res_m.status_code == 200:
+    # --- FILTRO SICUREZZA ---
+    ordine_mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    
+    for mese_file in ordine_mesi:
+        if os.path.exists(mese_file):
             try:
-                dati_mese = res_m.json()
-                if not dati_mese: continue
+                with open(mese_file, "r") as f:
+                    dati_mese = json.load(f)
                 
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
+                nome_mese = mese_file.replace(".json", "").capitalize()
+                st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
                 
                 for ev in dati_mese:
-                    staff_nomi = [s.strip().capitalize() for s in ev.get("staff", [])]
-                    if username == "simone" or username.capitalize() in staff_nomi:
+                    if username == "simone" or username.capitalize() in ev["staff"]:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                             for p in ev["staff"]:
-                                p_cap = p.strip().capitalize()
-                                # Controllo esatto nel registro CSV
-                                check = f"{ev['data']},{ev['nome']},{p_cap}"
-                                if check in st.session_state.registro_locale:
-                                    st.write(f"🟢 {p_cap} (Confermato)")
-                                else:
-                                    st.write(f"🔴 {p_cap} (In attesa...)")
+                                check = f"{ev['data']},{ev['nome']},{p.capitalize()}"
+                                icona = "🟢" if check in st.session_state.registro_locale else "🔴"
+                                stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
+                                st.write(f"{icona} {p} ({stato})")
                             
                             st.divider()
                             chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            
-                            # Logica Pulsanti ORIGINALE
                             if chiave_u not in st.session_state.registro_locale:
-                                if st.button("✅ CONFERMA DISPONIBILITÀ", key=f"add_{mese}{ev['nome']}{ev['data']}"):
+                                if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
+                                    st.session_state.registro_locale += chiave_u + "\n"
                                     aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
                                     st.rerun()
                             else:
-                                if st.button("❌ ANNULLA DISPONIBILITÀ", key=f"rem_{mese}{ev['nome']}{ev['data']}"):
+                                if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
+                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
                                     aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
                                     st.rerun()
-            except:
+            except Exception as e:
+                # Se un file ha problemi (es. è vuoto), lo ignora e passa al prossimo senza crashare
                 continue
