@@ -29,23 +29,39 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# Collaboratori in ordine originale
+# Ordine collaboratori originale
 utenti = {
-    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
-    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
-    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
-    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
-    "ugo": "ugo90", "valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
-# --- FUNZIONE DI LETTURA REALE (API) ---
-def scarica_registro_realtime():
+# --- FUNZIONI DI SINCRONIZZAZIONE ---
+def scarica_registro():
+    # Caricamento tramite API per evitare la cache di GitHub
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-    res = requests.get(url, headers=headers)
-    if res.status_code == 200:
-        content = base64.b64decode(res.json()["content"]).decode("utf-8")
-        return content
+    try:
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            return base64.b64decode(res.json()["content"]).decode("utf-8")
+    except:
+        pass
     return "Data,Evento,Collaboratore,OraInvio\n"
 
 def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
@@ -80,11 +96,12 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
     }
     requests.put(url, json=payload, headers=headers)
 
+# --- LOGICA APPLICATIVA ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# CARICAMENTO DATI REAL-TIME
-st.session_state.registro_locale = scarica_registro_realtime()
+# Scaricamento dati freschi ad ogni refresh
+st.session_state.registro_locale = scarica_registro()
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff FotoEventi")
@@ -122,9 +139,8 @@ else:
     ordine_mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     
     for mese in ordine_mesi:
-        # Anche per i mesi usiamo un timestamp per forzare il refresh
         url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json?v={int(time.time())}"
-        res_m = requests.get(url_mese, headers={"Cache-Control": "no-cache"})
+        res_m = requests.get(url_mese)
         
         if res_m.status_code == 200:
             try:
@@ -135,9 +151,30 @@ else:
                     staff_pulito = [s.strip().capitalize() for s in ev.get("staff", []) if s.strip()]
                     if username == "simone" or username.capitalize() in staff_pulito:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                            # Visualizzazione pallini in tempo reale
                             for p in ev["staff"]:
                                 if not p.strip(): continue
                                 p_cap = p.strip().capitalize()
                                 chiave_check = f"{ev['data']},{ev['nome']},{p_cap}"
                                 
-                                # IL PALLINO: Ora controlla i dati scaricati via API
+                                if chiave_check in st.session_state.registro_locale:
+                                    st.write(f"🟢 {p_cap} (Confermato)")
+                                else:
+                                    st.write(f"🔴 {p_cap} (In attesa...)")
+                            
+                            st.divider()
+                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
+                            
+                            # Pulsante dinamico: Conferma o Annulla
+                            if chiave_u in st.session_state.registro_locale:
+                                if st.button("❌ ANNULLA", key=f"rem_{mese}{ev['nome']}{ev['data']}"):
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
+                                    time.sleep(1) # Tempo per scrittura GitHub
+                                    st.rerun()
+                            else:
+                                if st.button("✅ CONFERMA", key=f"add_{mese}{ev['nome']}{ev['data']}"):
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
+                                    time.sleep(1)
+                                    st.rerun()
+            except:
+                continue
