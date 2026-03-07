@@ -24,7 +24,26 @@ REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
 ordine_tassativo = ["Simone", "Klaudia", "Leonardo", "Gianni", "Lorena", "Cristian", "Cristina", "Chiara", "Francesco", "Francescon", "Giulia", "Kristina", "Matteo", "Michela", "Raffaele", "Thomas", "Ugo", "Valentina"]
-utenti = {"simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77", "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34", "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36", "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45", "ugo": "ugo90", "valentina": "val75"}
+utenti = {
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
+}
 
 def scarica_registro():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
