@@ -5,6 +5,7 @@ import requests
 import base64
 import pandas as pd
 from datetime import datetime
+import time  # Necessario per la logica anti-ritardo
 from io import BytesIO, StringIO
 
 # --- CONFIGURAZIONE ---
@@ -60,7 +61,7 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
         cont = base64.b64decode(f_data["content"]).decode("utf-8")
         sha = f_data["sha"]
     else:
-        cont = "Data,Evento,Collaboratore\n"
+        cont = "Data,Evento,Collaboratore,OraInvio\n"
         sha = None
 
     linee = cont.splitlines()
@@ -80,76 +81,13 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
-if "registro_locale" not in st.session_state:
-import time
-url_p = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={int(time.time())}"
-    res = requests.get(url_raw)
-    st.session_state.registro_locale = res.text if res.status_code == 200 else ""
+
+# --- LOGICA ANTI-RITARDO (Sostituisce riga 84) ---
+# Forziamo il download dei dati freschi usando un timestamp nell'URL
+url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={int(time.time())}"
+res = requests.get(url_raw, headers={"Cache-Control": "no-cache"})
+st.session_state.registro_locale = res.text if res.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff FotoEventi")
-    user = st.text_input("Nome:").lower().strip()
-    pwd = st.text_input("Password:", type="password")
-    if st.button("Entra"):
-        if user in utenti and utenti[user] == pwd:
-            st.session_state.autenticato = True
-            st.session_state.username = user
-            st.rerun()
-        else:
-            st.error("Credenziali errate.")
-else:
-    username = st.session_state.username
-    col1, col2 = st.columns([0.8, 0.2])
-    with col1:
-        st.title(f"👋 Ciao {username.capitalize()}!")
-    with col2:
-        if st.button("Esci"):
-            st.session_state.autenticato = False
-            st.rerun()
-
-    if username == "simone":
-        with st.expander("🛠️ AREA AMMINISTRATORE"):
-            df = pd.read_csv(StringIO(st.session_state.registro_locale))
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
-                df.to_excel(wr, index=False)
-            st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
-
-    st.divider()
-
-    # --- FILTRO SICUREZZA ---
-    ordine_mesi = ["gennaio.json", "febbraio.json", "marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json", "agosto.json", "settembre.json", "ottobre.json", "novembre.json", "dicembre.json"]
-    
-    for mese_file in ordine_mesi:
-        if os.path.exists(mese_file):
-            try:
-                with open(mese_file, "r") as f:
-                    dati_mese = json.load(f)
-                
-                nome_mese = mese_file.replace(".json", "").capitalize()
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
-                
-                for ev in dati_mese:
-                    if username == "simone" or username.capitalize() in ev["staff"]:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            for p in ev["staff"]:
-                                check = f"{ev['data']},{ev['nome']},{p.capitalize()}"
-                                icona = "🟢" if check in st.session_state.registro_locale else "🔴"
-                                stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
-                                st.write(f"{icona} {p} ({stato})")
-                            
-                            st.divider()
-                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            if chiave_u not in st.session_state.registro_locale:
-                                if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale += chiave_u + "\n"
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                    st.rerun()
-                            else:
-                                if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
-                                    st.rerun()
-            except Exception as e:
-                # Se un file ha problemi (es. è vuoto), lo ignora e passa al prossimo senza crashare
-                continue
+    user
