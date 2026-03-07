@@ -1,6 +1,5 @@
 import streamlit as st
 import json
-import os
 import requests
 import base64
 import pandas as pd
@@ -30,24 +29,11 @@ REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
 utenti = {
-    "simone": "boss79",
-    "klaudia": "kla98",
-    "leonardo": "leo123",
-    "gianni": "gia77",
-    "lorena": "lor88",
-    "cristian": "cris99",
-    "cristina": "cri35",
-    "chiara": "chi34",
-    "francesco": "fra56",
-    "francescon": "fra07",
-    "giulia": "giu04",
-    "kristina": "kri36",
-    "matteo": "mat35",
-    "michela": "mic43",
-    "raffaele": "raf21",
-    "thomas": "tom45",
-    "ugo": "ugo90",
-    "valentina": "val75"
+    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
+    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
+    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
+    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
+    "ugo": "ugo90", "valentina": "val75"
 }
 
 def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
@@ -108,56 +94,53 @@ else:
 
     if username == "simone":
         with st.expander("🛠️ AREA AMMINISTRATORE"):
-            df = pd.read_csv(StringIO(st.session_state.registro_locale))
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
-                df.to_excel(wr, index=False)
-            st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
+            try:
+                df = pd.read_csv(StringIO(st.session_state.registro_locale))
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
+                    df.to_excel(wr, index=False)
+                st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
+            except:
+                st.write("Nessun dato ancora presente.")
 
     st.divider()
 
-    # --- NUOVA LOGICA DI CARICAMENTO AUTOMATICO ---
-    # Cerchiamo tutti i file .json nella cartella dell'app
-    file_nel_folder = [f for f in os.listdir('.') if f.endswith('.json')]
+    # --- LISTA MESI DINAMICA ---
+    # Aggiungi qui i nomi dei file che hai su GitHub
+    elenco_mesi_file = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
     
-    # Definiamo l'ordine corretto dei mesi per la visualizzazione
-    ordine_mesi_rif = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", 
-                       "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-    
-    # Ordiniamo i file trovati in base alla lista di riferimento
-    file_trovati = sorted(file_nel_folder, 
-                          key=lambda x: ordine_mesi_rif.index(x.replace('.json', '').lower()) 
-                          if x.replace('.json', '').lower() in ordine_mesi_rif else 99)
-
-    for mese_file in file_trovati:
-        try:
-            with open(mese_file, "r") as f:
-                dati_mese = json.load(f)
-            
-            nome_mese = mese_file.replace(".json", "").capitalize()
-            st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese}</h3></div>', unsafe_allow_html=True)
-            
-            for ev in dati_mese:
-                # Verifica se l'utente deve vedere l'evento
-                if username == "simone" or (username.capitalize() in [s.capitalize() for s in ev["staff"]]):
-                    with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                        for p in ev["staff"]:
-                            check = f"{ev['data']},{ev['nome']},{p.strip().capitalize()}"
-                            icona = "🟢" if check in st.session_state.registro_locale else "🔴"
-                            stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
-                            st.write(f"{icona} {p} ({stato})")
-                        
-                        st.divider()
-                        chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                        if chiave_u not in st.session_state.registro_locale:
-                            if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
-                                st.session_state.registro_locale += chiave_u + "\n"
-                                aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                st.rerun()
-                        else:
-                            if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
-                                st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
-                                aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
-                                st.rerun()
-        except Exception as e:
-            continue
+    for mese_file in elenco_mesi_file:
+        # SCARICHIAMO IL FILE DIRETTAMENTE DA GITHUB (Raw)
+        url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese_file}"
+        response = requests.get(url_mese)
+        
+        if response.status_code == 200:
+            try:
+                dati_mese = response.json()
+                nome_mese_display = mese_file.replace(".json", "").capitalize()
+                st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese_display}</h3></div>', unsafe_allow_html=True)
+                
+                for ev in dati_mese:
+                    # Filtro: Admin vede tutto, collaboratore vede solo i suoi eventi
+                    if username == "simone" or (username.capitalize() in [s.capitalize() for s in ev["staff"]]):
+                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                            for p in ev["staff"]:
+                                check = f"{ev['data']},{ev['nome']},{p.strip().capitalize()}"
+                                icona = "🟢" if check in st.session_state.registro_locale else "🔴"
+                                stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
+                                st.write(f"{icona} {p} ({stato})")
+                            
+                            st.divider()
+                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
+                            if chiave_u not in st.session_state.registro_locale:
+                                if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
+                                    st.session_state.registro_locale += chiave_u + "\n"
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
+                                    st.rerun()
+                            else:
+                                if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
+                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
+                                    st.rerun()
+            except Exception as e:
+                continue # Salta il mese se il file JSON è scritto male
