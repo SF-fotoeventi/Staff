@@ -82,8 +82,8 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# --- LOGICA ANTI-RITARDO ---
-# Uso di timestamp per forzare il download dei dati freschi
+# --- LOGICA ANTI-RITARDO (Anti-Cache) ---
+# Usiamo un timestamp per forzare il download del CSV sempre aggiornato
 url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={int(time.time())}"
 res = requests.get(url_raw, headers={"Cache-Control": "no-cache"})
 st.session_state.registro_locale = res.text if res.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
@@ -105,6 +105,7 @@ else:
     with col1:
         st.title(f"👋 Ciao {username.capitalize()}!")
     with col2:
+        # Pulsante per ricaricare i dati all'istante
         if st.button("Aggiorna Dati 🔄"):
             st.rerun()
         if st.button("Esci"):
@@ -120,47 +121,13 @@ else:
                     df.to_excel(wr, index=False)
                 st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
             except:
-                st.write("Registro non disponibile.")
+                st.write("Registro non ancora disponibile.")
 
     st.divider()
 
-    # Elenco mesi completi
+    # Elenco mesi completi per il caricamento
     ordine_mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     
     for mese in ordine_mesi:
         url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json?v={int(time.time())}"
         res_m = requests.get(url_mese, headers={"Cache-Control": "no-cache"})
-        
-        if res_m.status_code == 200:
-            try:
-                dati_mese = res_m.json()
-                if not dati_mese: continue
-                
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
-                
-                for ev in dati_mese:
-                    # Filtra ed evita crash se ci sono spazi vuoti nel JSON
-                    staff_pulito = [s.strip().capitalize() for s in ev.get("staff", []) if s.strip()]
-                    
-                    if username == "simone" or username.capitalize() in staff_pulito:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            for p in ev["staff"]:
-                                if not p.strip(): continue
-                                p_cap = p.strip().capitalize()
-                                check = f"{ev['data']},{ev['nome']},{p_cap}"
-                                
-                                # Visualizzazione pallini e stato
-                                if check in st.session_state.registro_locale:
-                                    st.write(f"🟢 {p_cap} (Confermato)")
-                                else:
-                                    st.write(f"🔴 {p_cap} (In attesa...)")
-                            
-                            st.divider()
-                            chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            
-                            if chiave_u not in st.session_state.registro_locale:
-                                if st.button("✅ CONFERMA", key=f"add_{mese}{ev['nome']}{ev['data']}"):
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                    st.rerun()
-                            else:
-                                if st.button("❌
