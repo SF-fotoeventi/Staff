@@ -60,7 +60,7 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
         cont = base64.b64decode(f_data["content"]).decode("utf-8")
         sha = f_data["sha"]
     else:
-        cont = "Data,Evento,Collaboratore,OraInvio\n"
+        cont = "Data,Evento,Collaboratore\n"
         sha = None
 
     linee = cont.splitlines()
@@ -117,7 +117,7 @@ else:
     st.divider()
 
     # --- FILTRO SICUREZZA ---
-    ordine_mesi = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
+    ordine_mesi = ["gennaio.json", "febbraio.json", "marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json", "agosto.json", "settembre.json", "ottobre.json", "novembre.json", "dicembre.json"]
     
     for mese_file in ordine_mesi:
         if os.path.exists(mese_file):
