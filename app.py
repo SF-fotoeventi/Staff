@@ -66,10 +66,11 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
-if "registro_locale" not in st.session_state:
-    url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
-    res = requests.get(url_raw)
-    st.session_state.registro_locale = res.text if res.status_code == 200 else ""
+
+# Caricamento presenze aggiornato
+url_raw_presenze = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}"
+res_p = requests.get(url_raw_presenze)
+st.session_state.registro_locale = res_p.text if res_p.status_code == 200 else ""
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff FotoEventi")
@@ -96,51 +97,55 @@ else:
         with st.expander("🛠️ AREA AMMINISTRATORE"):
             try:
                 df = pd.read_csv(StringIO(st.session_state.registro_locale))
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
-                    df.to_excel(wr, index=False)
-                st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
+                st.download_button("📥 SCARICA EXCEL", df.to_csv(index=False).encode('utf-8'), "Report.csv")
             except:
-                st.write("Nessun dato ancora presente.")
+                st.write("Nessun dato presente.")
 
     st.divider()
 
-    # --- LISTA MESI DINAMICA ---
-    # Aggiungi qui i nomi dei file che hai su GitHub
-    elenco_mesi_file = ["marzo.json", "aprile.json", "maggio.json", "giugno.json", "luglio.json"]
-    
-    for mese_file in elenco_mesi_file:
-        # SCARICHIAMO IL FILE DIRETTAMENTE DA GITHUB (Raw)
+    # --- LISTA MESI DELL'ANNO ---
+    mesi_anno = [
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
+    ]
+
+    for mese in mesi_anno:
+        mese_file = f"{mese}.json"
         url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese_file}"
-        response = requests.get(url_mese)
+        res = requests.get(url_mese)
         
-        if response.status_code == 200:
+        if res.status_code == 200:
             try:
-                dati_mese = response.json()
-                nome_mese_display = mese_file.replace(".json", "").capitalize()
-                st.markdown(f'<div class="month-header"><h3>📅 Programma {nome_mese_display}</h3></div>', unsafe_allow_html=True)
+                dati_mese = res.json()
+                
+                # SE IL FILE È VUOTO O NON CONTIENE EVENTI, NON MOSTRARE NULLA
+                if not dati_mese or len(dati_mese) == 0:
+                    continue
+                
+                st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
                 
                 for ev in dati_mese:
-                    # Filtro: Admin vede tutto, collaboratore vede solo i suoi eventi
-                    if username == "simone" or (username.capitalize() in [s.capitalize() for s in ev["staff"]]):
+                    # Filtro visibilità
+                    staff_norm = [s.strip().capitalize() for s in ev.get("staff", [])]
+                    if username == "simone" or username.capitalize() in staff_norm:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                             for p in ev["staff"]:
-                                check = f"{ev['data']},{ev['nome']},{p.strip().capitalize()}"
+                                p_cap = p.strip().capitalize()
+                                check = f"{ev['data']},{ev['nome']},{p_cap}"
                                 icona = "🟢" if check in st.session_state.registro_locale else "🔴"
                                 stato = "Confermato" if check in st.session_state.registro_locale else "In attesa..."
-                                st.write(f"{icona} {p} ({stato})")
+                                st.write(f"{icona} {p_cap} ({stato})")
                             
                             st.divider()
                             chiave_u = f"{ev['data']},{ev['nome']},{username.capitalize()}"
+                            
                             if chiave_u not in st.session_state.registro_locale:
-                                if st.button("✅ CONFERMA", key="add"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale += chiave_u + "\n"
+                                if st.button("✅ CONFERMA", key=f"add_{mese}{ev['nome']}{ev['data']}"):
                                     aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
                                     st.rerun()
                             else:
-                                if st.button("❌ ANNULLA", key="rem"+ev['nome']+ev['data']+mese_file):
-                                    st.session_state.registro_locale = st.session_state.registro_locale.replace(chiave_u + "\n", "")
+                                if st.button("❌ ANNULLA", key=f"rem_{mese}{ev['nome']}{ev['data']}"):
                                     aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
                                     st.rerun()
-            except Exception as e:
-                continue # Salta il mese se il file JSON è scritto male
+            except Exception:
+                continue # Se il JSON è formattato male, salta il mese
