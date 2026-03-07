@@ -25,12 +25,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Credenziali dai Secrets
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# Ordine originale collaboratori
+# Collaboratori in ordine originale
 utenti = {
     "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
     "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
@@ -38,6 +37,16 @@ utenti = {
     "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
     "ugo": "ugo90", "valentina": "val75"
 }
+
+# --- FUNZIONE DI LETTURA REALE (API) ---
+def scarica_registro_realtime():
+    url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    res = requests.get(url, headers=headers)
+    if res.status_code == 200:
+        content = base64.b64decode(res.json()["content"]).decode("utf-8")
+        return content
+    return "Data,Evento,Collaboratore,OraInvio\n"
 
 def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
@@ -53,10 +62,9 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
         sha = None
 
     linee = cont.splitlines()
-    nuove_linee = [linee[0]] # Mantiene l'intestazione
+    nuove_linee = [linee[0]]
     chiave = f"{data_ev},{evento},{collaboratore}"
     
-    # Filtra le linee esistenti per evitare duplicati o per rimuovere la conferma
     for l in linee[1:]:
         if chiave not in l:
             nuove_linee.append(l)
@@ -75,12 +83,8 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# --- ANTI-RITARDO (Cache Killer) ---
-# Forza il download immediato dei dati freschi per aggiornare i pallini
-t_stamp = int(time.time())
-url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={t_stamp}"
-res_p = requests.get(url_raw, headers={"Cache-Control": "no-cache"})
-st.session_state.registro_locale = res_p.text if res_p.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
+# CARICAMENTO DATI REAL-TIME
+st.session_state.registro_locale = scarica_registro_realtime()
 
 if not st.session_state.autenticato:
     st.title("🔐 Accesso Staff FotoEventi")
@@ -107,35 +111,28 @@ else:
 
     if username == "simone":
         with st.expander("🛠️ AREA AMMINISTRATORE"):
-            try:
-                df = pd.read_csv(StringIO(st.session_state.registro_locale))
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
-                    df.to_excel(wr, index=False)
-                st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report_Presenze.xlsx")
-            except:
-                st.write("Nessun dato registrato.")
+            df = pd.read_csv(StringIO(st.session_state.registro_locale))
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
+                df.to_excel(wr, index=False)
+            st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
 
     st.divider()
 
-    # --- CARICAMENTO PROGRAMMI MENSILI ---
     ordine_mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     
     for mese in ordine_mesi:
-        url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json?v={t_stamp}"
+        # Anche per i mesi usiamo un timestamp per forzare il refresh
+        url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json?v={int(time.time())}"
         res_m = requests.get(url_mese, headers={"Cache-Control": "no-cache"})
         
         if res_m.status_code == 200:
             try:
                 dati_mese = res_m.json()
-                if not dati_mese: continue
-                
                 st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
                 
                 for ev in dati_mese:
                     staff_pulito = [s.strip().capitalize() for s in ev.get("staff", []) if s.strip()]
-                    
-                    # Mostra l'evento se l'utente è Simone o è in lista staff
                     if username == "simone" or username.capitalize() in staff_pulito:
                         with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
                             for p in ev["staff"]:
@@ -143,23 +140,4 @@ else:
                                 p_cap = p.strip().capitalize()
                                 chiave_check = f"{ev['data']},{ev['nome']},{p_cap}"
                                 
-                                # Logica pallini: Verde se presente nel CSV, Rosso altrimenti
-                                if chiave_check in st.session_state.registro_locale:
-                                    st.write(f"🟢 {p_cap} (Confermato)")
-                                else:
-                                    st.write(f"🔴 {p_cap} (In attesa...)")
-                            
-                            st.divider()
-                            chiave_utente = f"{ev['data']},{ev['nome']},{username.capitalize()}"
-                            
-                            # Pulsanti dinamici: se già confermato mostra "Annulla", altrimenti "Conferma"
-                            if chiave_utente in st.session_state.registro_locale:
-                                if st.button("❌ ANNULLA CONFERMA", key=f"rem_{mese}{ev['nome']}{ev['data']}"):
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
-                                    st.rerun()
-                            else:
-                                if st.button("✅ CONFERMA PRESENZA", key=f"add_{mese}{ev['nome']}{ev['data']}"):
-                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
-                                    st.rerun()
-            except:
-                continue
+                                # IL PALLINO: Ora controlla i dati scaricati via API
