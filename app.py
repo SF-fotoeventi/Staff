@@ -22,7 +22,6 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# --- ORDINE COLLABORATORI TASSOSTATIVO ---
 ordine_tassativo = [
     "Simone", "Klaudia", "Leonardo", "Gianni", "Lorena", "Cristian", 
     "Cristina", "Chiara", "Francesco", "Francescon", "Giulia", 
@@ -30,11 +29,24 @@ ordine_tassativo = [
 ]
 
 utenti = {
-    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
-    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
-    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
-    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
-    "ugo": "ugo90", "valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
 def scarica_registro():
@@ -49,25 +61,35 @@ def scarica_registro():
     return "Data,Evento,Collaboratore,OraInvio\n"
 
 def salva_su_github(data_ev, evento, nome, azione):
+    """Esegue l'aggiornamento su GitHub in background"""
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    res = requests.get(url, headers=headers)
-    cont = base64.b64decode(res.json()["content"]).decode("utf-8") if res.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
-    sha = res.json()["sha"] if res.status_code == 200 else None
     
+    # 1. Recupera stato attuale
+    res = requests.get(url, headers=headers)
+    if res.status_code == 200:
+        cont = base64.b64decode(res.json()["content"]).decode("utf-8")
+        sha = res.json()["sha"]
+    else:
+        cont = "Data,Evento,Collaboratore,OraInvio\n"
+        sha = None
+
     linee = cont.splitlines()
-    nuove_linee = [linee[0]]
-    chiave = f"{data_ev},{evento},{nome}"
+    # Rimuoviamo la riga vecchia se esiste per evitare duplicati
+    chiave_ricerca = f"{data_ev},{evento},{nome}"
+    nuove_linee = [linee[0]] # Header
     
     for l in linee[1:]:
-        if chiave not in l:
+        if chiave_ricerca not in l:
             nuove_linee.append(l)
     
+    # Se l'azione è aggiungi, inseriamo la nuova riga
     if azione == "aggiungi":
-        nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        nuove_linee.append(f"{chiave_ricerca},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
     
+    # 2. Push su GitHub
     payload = {
-        "message": f"{azione} {nome}",
+        "message": f"{azione.upper()} {nome} - {evento}",
         "content": base64.b64encode(("\n".join(nuove_linee)+"\n").encode("utf-8")).decode("utf-8"),
         "sha": sha
     }
@@ -94,6 +116,11 @@ if not st.session_state.autenticato:
 else:
     st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
     
+    # Bottone di refresh manuale per forzare il download da GitHub
+    if st.button("🔄 Aggiorna Lista (Sincronizza)"):
+        st.session_state.cache = scarica_registro()
+        st.rerun()
+
     mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     for m in mesi:
         url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
@@ -106,12 +133,14 @@ else:
                     staff_ev_low = [s.strip().lower() for s in ev.get("staff", [])]
                     
                     if st.session_state.username == "simone" or st.session_state.username in staff_ev_low:
-                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
-                            # MOSTRA PALLINI IN ORDINE
+                        with st.expander(f"📍 {ev['nome']} - {ev['data']}", expanded=True):
+                            
+                            # Visualizzazione Stato Collaboratori
                             for n_fisso in ordine_tassativo:
                                 if n_fisso.lower() in staff_ev_low:
-                                    chiave = f"{ev['data']},{ev['nome']},{n_fisso}"
-                                    if chiave in st.session_state.cache:
+                                    chiave_check = f"{ev['data']},{ev['nome']},{n_fisso}"
+                                    # Controllo se la chiave è presente nella cache
+                                    if chiave_check in st.session_state.cache:
                                         st.write(f"🟢 *{n_fisso}*")
                                     else:
                                         st.write(f"🔴 {n_fisso}")
@@ -120,15 +149,28 @@ else:
                             mio_nome = st.session_state.username.capitalize()
                             mia_chiave = f"{ev['data']},{ev['nome']},{mio_nome}"
                             
-                            # CLICK SINGOLO E REATTIVO
-                            if mia_chiave in st.session_state.cache:
+                            # LOGICA CLICK SINGOLO E REATTIVO
+                            is_confermato = mia_chiave in st.session_state.cache
+                            
+                            if is_confermato:
                                 if st.button("❌ ANNULLA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
-                                    st.session_state.cache = st.session_state.cache.replace(f"{mia_chiave},", "OFF,")
+                                    # 1. Modifica immediata della cache locale per feedback visivo istantaneo
+                                    nuova_cache = []
+                                    for riga in st.session_state.cache.splitlines():
+                                        if mia_chiave not in riga:
+                                            nuova_cache.append(riga)
+                                    st.session_state.cache = "\n".join(nuova_cache)
+                                    
+                                    # 2. Aggiorna GitHub e ricarica
                                     salva_su_github(ev['data'], ev['nome'], mio_nome, "rimuovi")
                                     st.rerun()
                             else:
                                 if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
-                                    st.session_state.cache += f"{mia_chiave},{datetime.now()}\n"
+                                    # 1. Modifica immediata della cache locale
+                                    nuova_riga = f"{mia_chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                                    st.session_state.cache += f"\n{nuova_riga}"
+                                    
+                                    # 2. Aggiorna GitHub e ricarica
                                     salva_su_github(ev['data'], ev['nome'], mio_nome, "aggiungi")
                                     st.rerun()
             except:
