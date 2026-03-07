@@ -6,5 +6,6 @@
   {"data": "19 Aprile", "nome": "GARA CONEGLIANO", "staff": ["Cristian", "Thomas"]},
   {"data": "19 Aprile", "nome": "ACROBATICA", "staff": ["Francescon", "Simone", "Klaudia"]},
   {"data": "19 Aprile", "nome": "GARA LIVORNO", "staff": ["Gianni", "Lorena"]},
-  {"data": "19 Aprile", "nome": "SAGGIO CASTELFIORENTINO", "staff": ["Leonardo"]}
+  {"data": "19 Aprile", "nome": "SAGGIO CASTELFIORENTINO", "staff": ["Leonardo"]},
+  {"data": "26 Aprile", "nome": "GARA Città di Castello", "staff": ["Simone", "Klaudia"]}
 ]
