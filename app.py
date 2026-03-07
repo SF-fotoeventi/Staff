@@ -4,13 +4,12 @@ import base64
 from datetime import datetime
 import time
 
-# --- CONFIGURAZIONE INTERFACCIA ---
+# --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Staff FotoEventi", layout="wide")
 
 st.markdown("""
     <style>
         [data-testid="stSidebar"] {display: none;}
-        .main {margin-top: -50px;}
         .month-header {
             background: #f0f2f6; padding: 10px; border-radius: 10px;
             border-left: 5px solid #ff4b4b; margin: 20px 0;
@@ -23,7 +22,7 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# --- ORDINE COLLABORATORI TASSOSTATIVO (Dalla tua foto) ---
+# --- ORDINE COLLABORATORI TASSOSTATIVO ---
 ordine_tassativo = [
     "Simone", "Klaudia", "Leonardo", "Gianni", "Lorena", "Cristian", 
     "Cristina", "Chiara", "Francesco", "Francescon", "Giulia", 
@@ -38,7 +37,6 @@ utenti = {
     "ugo": "ugo90", "valentina": "val75"
 }
 
-# --- FUNZIONI DI SINCRONIZZAZIONE ---
 def scarica_registro():
     url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PRESENZE}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
@@ -46,7 +44,8 @@ def scarica_registro():
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
             return base64.b64decode(res.json()["content"]).decode("utf-8")
-    except: pass
+    except:
+        pass
     return "Data,Evento,Collaboratore,OraInvio\n"
 
 def salva_su_github(data_ev, evento, nome, azione):
@@ -57,12 +56,12 @@ def salva_su_github(data_ev, evento, nome, azione):
     sha = res.json()["sha"] if res.status_code == 200 else None
     
     linee = cont.splitlines()
-    header = linee[0]
-    nuove_linee = [header]
+    nuove_linee = [linee[0]]
     chiave = f"{data_ev},{evento},{nome}"
     
     for l in linee[1:]:
-        if chiave not in l: nuove_linee.append(l)
+        if chiave not in l:
+            nuove_linee.append(l)
     
     if azione == "aggiungi":
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
@@ -74,7 +73,7 @@ def salva_su_github(data_ev, evento, nome, azione):
     }
     requests.put(url, json=payload, headers=headers)
 
-# --- LOGICA APP ---
+# --- LOGICA CORE ---
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
@@ -87,8 +86,54 @@ if not st.session_state.autenticato:
     p = st.text_input("Password:", type="password")
     if st.button("ACCEDI"):
         if u in utenti and utenti[u] == p:
-            st.session_state.autenticato, st.session_state.username = True, u
+            st.session_state.autenticato = True
+            st.session_state.username = u
             st.rerun()
-        else: st.error("Accesso negato")
+        else:
+            st.error("Credenziali errate")
 else:
-    st.title(f"
+    st.title(f"👋 Ciao {st.session_state.username.capitalize()}!")
+    
+    mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+    for m in mesi:
+        url_m = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{m}.json?v={int(time.time())}"
+        res_m = requests.get(url_m)
+        if res_m.status_code == 200:
+            try:
+                eventi = res_m.json()
+                st.markdown(f'<div class="month-header"><h3>📅 {m.upper()}</h3></div>', unsafe_allow_html=True)
+                for ev in eventi:
+                    staff_ev_low = [s.strip().lower() for s in ev.get("staff", [])]
+                    
+                    if st.session_state.username == "simone" or st.session_state.username in staff_ev_low:
+                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                            # MOSTRA PALLINI IN ORDINE
+                            for n_fisso in ordine_tassativo:
+                                if n_fisso.lower() in staff_ev_low:
+                                    chiave = f"{ev['data']},{ev['nome']},{n_fisso}"
+                                    if chiave in st.session_state.cache:
+                                        st.write(f"🟢 *{n_fisso}*")
+                                    else:
+                                        st.write(f"🔴 {n_fisso}")
+                            
+                            st.divider()
+                            mio_nome = st.session_state.username.capitalize()
+                            mia_chiave = f"{ev['data']},{ev['nome']},{mio_nome}"
+                            
+                            # CLICK SINGOLO E REATTIVO
+                            if mia_chiave in st.session_state.cache:
+                                if st.button("❌ ANNULLA", key=f"rm_{m}{ev['nome']}{ev['data']}"):
+                                    st.session_state.cache = st.session_state.cache.replace(f"{mia_chiave},", "OFF,")
+                                    salva_su_github(ev['data'], ev['nome'], mio_nome, "rimuovi")
+                                    st.rerun()
+                            else:
+                                if st.button("✅ CONFERMA", key=f"add_{m}{ev['nome']}{ev['data']}"):
+                                    st.session_state.cache += f"{mia_chiave},{datetime.now()}\n"
+                                    salva_su_github(ev['data'], ev['nome'], mio_nome, "aggiungi")
+                                    st.rerun()
+            except:
+                continue
+
+    if st.button("Esci"):
+        st.session_state.autenticato = False
+        st.rerun()
