@@ -25,18 +25,31 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Recupero credenziali dai Secrets
+# Credenziali dai Secrets
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PRESENZE = "presenze.csv"
 
-# Ordine originale collaboratori
+# Ordine originale collaboratori richiesto
 utenti = {
-    "simone": "boss79", "klaudia": "kla98", "leonardo": "leo123", "gianni": "gia77",
-    "lorena": "lor88", "cristian": "cris99", "cristina": "cri35", "chiara": "chi34",
-    "francesco": "fra56", "francescon": "fra07", "giulia": "giu04", "kristina": "kri36",
-    "matteo": "mat35", "michela": "mic43", "raffaele": "raf21", "thomas": "tom45",
-    "ugo": "ugo90", "valentina": "val75"
+    "simone": "boss79",
+    "klaudia": "kla98",
+    "leonardo": "leo123",
+    "gianni": "gia77",
+    "lorena": "lor88",
+    "cristian": "cris99",
+    "cristina": "cri35",
+    "chiara": "chi34",
+    "francesco": "fra56",
+    "francescon": "fra07",
+    "giulia": "giu04",
+    "kristina": "kri36",
+    "matteo": "mat35",
+    "michela": "mic43",
+    "raffaele": "raf21",
+    "thomas": "tom45",
+    "ugo": "ugo90",
+    "valentina": "val75"
 }
 
 def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
@@ -64,14 +77,103 @@ def aggiorna_github(data_ev, evento, collaboratore, azione="aggiungi"):
         nuove_linee.append(f"{chiave},{datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
     nuovo_cont = "\n".join(nuove_linee) + "\n"
-    payload = {"message": f"{azione} {collaboratore}", "content": base64.b64encode(nuovo_cont.encode("utf-8")).decode("utf-8"), "sha": sha}
+    payload = {
+        "message": f"{azione} {collaboratore}", 
+        "content": base64.b64encode(nuovo_cont.encode("utf-8")).decode("utf-8"), 
+        "sha": sha
+    }
     requests.put(url, json=payload, headers=headers)
 
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
-# --- ANTI-RITARDO (Cache Killer) ---
-# Forza lo scaricamento dei dati aggiornati
-timestamp = int(time.time())
-url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={timestamp}"
-res =
+# --- LOGICA ANTI-RITARDO (Cache Killer) ---
+# Timestamp dinamico per forzare GitHub a fornire dati freschi
+t_stamp = int(time.time())
+url_raw = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{FILE_PRESENZE}?v={t_stamp}"
+res_p = requests.get(url_raw, headers={"Cache-Control": "no-cache"})
+st.session_state.registro_locale = res_p.text if res_p.status_code == 200 else "Data,Evento,Collaboratore,OraInvio\n"
+
+if not st.session_state.autenticato:
+    st.title("🔐 Accesso Staff FotoEventi")
+    user = st.text_input("Nome:").lower().strip()
+    pwd = st.text_input("Password:", type="password")
+    if st.button("Entra"):
+        if user in utenti and utenti[user] == pwd:
+            st.session_state.autenticato = True
+            st.session_state.username = user
+            st.rerun()
+        else:
+            st.error("Credenziali errate.")
+else:
+    username = st.session_state.username
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1:
+        st.title(f"👋 Ciao {username.capitalize()}!")
+    with col2:
+        # Pulsanti Aggiorna ed Esci
+        if st.button("Aggiorna Dati 🔄"):
+            st.rerun()
+        if st.button("Esci"):
+            st.session_state.autenticato = False
+            st.rerun()
+
+    if username == "simone":
+        with st.expander("🛠️ AREA AMMINISTRATORE"):
+            try:
+                df = pd.read_csv(StringIO(st.session_state.registro_locale))
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
+                    df.to_excel(wr, index=False)
+                st.download_button("📥 SCARICA EXCEL", out.getvalue(), "Report.xlsx")
+            except:
+                st.write("Nessun dato nel registro.")
+
+    st.divider()
+
+    # --- CARICAMENTO PROGRAMMI ---
+    # Scarico i mesi direttamente da GitHub via URL per evitare che spariscano
+    mesi_anno = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+    
+    for mese in mesi_anno:
+        url_mese = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{mese}.json?v={t_stamp}"
+        res_m = requests.get(url_mese, headers={"Cache-Control": "no-cache"})
+        
+        if res_m.status_code == 200:
+            try:
+                dati_mese = res_m.json()
+                if not dati_mese: continue
+                
+                st.markdown(f'<div class="month-header"><h3>📅 Programma {mese.capitalize()}</h3></div>', unsafe_allow_html=True)
+                
+                for ev in dati_mese:
+                    # Filtro per mostrare solo eventi dove il collaboratore è presente (o Simone)
+                    staff_list = [s.strip().capitalize() for s in ev.get("staff", []) if s.strip()]
+                    
+                    if username == "simone" or username.capitalize() in staff_list:
+                        with st.expander(f"📍 {ev['nome']} - {ev['data']}"):
+                            for p in ev["staff"]:
+                                if not p.strip(): continue
+                                p_cap = p.strip().capitalize()
+                                chiave_check = f"{ev['data']},{ev['nome']},{p_cap}"
+                                
+                                # Verifica pallini di stato
+                                if chiave_check in st.session_state.registro_locale:
+                                    st.write(f"🟢 {p_cap} (Confermato)")
+                                else:
+                                    st.write(f"🔴 {p_cap} (In attesa...)")
+                            
+                            st.divider()
+                            chiave_utente = f"{ev['data']},{ev['nome']},{username.capitalize()}"
+                            
+                            # Logica pulsanti conferma/annulla
+                            if chiave_utente not in st.session_state.registro_locale:
+                                if st.button("✅ CONFERMA", key=f"btn_add_{mese}{ev['nome']}{ev['data']}"):
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "aggiungi")
+                                    st.rerun()
+                            else:
+                                if st.button("❌ ANNULLA", key=f"btn_rem_{mese}{ev['nome']}{ev['data']}"):
+                                    aggiorna_github(ev['data'], ev['nome'], username.capitalize(), "rimuovi")
+                                    st.rerun()
+            except:
+                continue
