@@ -1,6 +1,6 @@
 [
   {"data": "3 maggio", "nome": "CONCORSO PESARO", "staff": ["Simone", "Klaudia"]},
-  {"data": "3 maggio", "nome": "GARA BALLO", "staff": ["Thomas", "Cristian"]},
+  {"data": "3 maggio", "nome": "GARA BALLO", "staff": ["Thomas"]},
   {"data": "9 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Simone", "Klaudia", "Ugo"]},
   {"data": "10 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Leonardo", "Chiara", "Ugo"]},
   {"data": "10 maggio", "nome": "CONCORSO CORTE FRANCA", "staff": ["Simone", "Klaudia", "Raffaele"]},
@@ -8,7 +8,7 @@
   {"data": "10 maggio", "nome": "GARA LIVORNO", "staff": ["Gianni", "Lorena"]},
   {"data": "16 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
   {"data": "17 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
-  {"data": "23 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Cristian", "Thomas"]},
-  {"data": "24 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Cristian", "Thomas"]},
+  {"data": "23 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Thomas"]},
+  {"data": "24 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Thomas"]},
   {"data": "24 maggio", "nome": "GARA ROMA", "staff": ["Ugo", "Giulia"]}
 ]
