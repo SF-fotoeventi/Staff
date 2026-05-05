@@ -1,14 +1,19 @@
 [
-  {"data": "3 maggio", "nome": "CONCORSO PESARO", "staff": ["Simone", "Klaudia"]},
-  {"data": "3 maggio", "nome": "GARA BALLO", "staff": ["Thomas"]},
-  {"data": "9 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Simone", "Klaudia", "Ugo"]},
-  {"data": "10 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Leonardo", "Chiara", "Ugo"]},
-  {"data": "10 maggio", "nome": "CONCORSO CORTE FRANCA", "staff": ["Simone", "Klaudia", "Raffaele"]},
-  {"data": "10 maggio", "nome": "CONCORSO MILANO", "staff": ["Francesco", "Kristina", "Francescon"]},
-  {"data": "10 maggio", "nome": "GARA LIVORNO", "staff": ["Gianni", "Lorena"]},
+  {"data": "9 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Simone", "Klaudia", "Gianni"]},
+  {"data": "10 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Gianni", "Lorena"]},
+  {"data": "10 maggio", "nome": "CONCORSO CORTE FRANCA", "staff": ["Simone", "Klaudia", "Francesco"]},
+  {"data": "10 maggio", "nome": "CONCORSO MILANO", "staff": ["Simone", "Francescon"]},
+  {"data": "10 maggio", "nome": "GARA LIVORNO", "staff": ["Leonardo", "Ugo"]},
   {"data": "16 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
   {"data": "17 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
+  {"data": "17 maggio", "nome": "GARA MALANDRONE", "staff": ["Gianni", "Lorena"]},
+  {"data": "17 maggio", "nome": "GARA PRATO", "staff": ["Leonardo", "Cristina"]},
   {"data": "23 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Thomas"]},
   {"data": "24 maggio", "nome": "CONCORSO JESOLO", "staff": ["Simone", "Klaudia", "Thomas"]},
-  {"data": "24 maggio", "nome": "GARA ROMA", "staff": ["Ugo", "Giulia"]}
+  {"data": "23 maggio", "nome": "GINNASTICA MONTEVARCHI", "staff": ["Gianni", "Lorena"]},
+  {"data": "24 maggio", "nome": "GINNASTICA MONTEVARCHI", "staff": ["Gianni", "Lorena"]},
+  {"data": "23 maggio", "nome": "GARA MONTECATINI", "staff": ["Leonardo", "Francesco"]},
+  {"data": "24 maggio", "nome": "GARA MONTECATINI", "staff": ["Leonardo", "Francesco"]},
+  {"data": "24 maggio", "nome": "GARA ROMA", "staff": ["Michela", "Giulia"]}
+  {"data": "24 maggio", "nome": "GARA LOIANO", "staff": ["Ugo", "Chiara"]}
 ]
