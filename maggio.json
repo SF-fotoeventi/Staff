@@ -2,7 +2,7 @@
   {"data": "9 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Simone", "Klaudia", "Gianni"]},
   {"data": "10 maggio", "nome": "CONCORSO FIRENZE", "staff": ["Gianni", "Lorena"]},
   {"data": "10 maggio", "nome": "CONCORSO CORTE FRANCA", "staff": ["Simone", "Klaudia", "Francesco"]},
-  {"data": "10 maggio", "nome": "CONCORSO MILANO", "staff": ["Simone", "Francescon"]},
+  {"data": "10 maggio", "nome": "CONCORSO MILANO", "staff": ["Simone", "Francesco"]},
   {"data": "10 maggio", "nome": "GARA LIVORNO", "staff": ["Leonardo", "Ugo"]},
   {"data": "16 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
   {"data": "17 maggio", "nome": "GARA ROMA", "staff": ["Simone", "Klaudia", "Michela", "Giulia"]},
@@ -14,6 +14,6 @@
   {"data": "24 maggio", "nome": "GINNASTICA MONTEVARCHI", "staff": ["Gianni", "Lorena"]},
   {"data": "23 maggio", "nome": "GARA MONTECATINI", "staff": ["Leonardo", "Francesco"]},
   {"data": "24 maggio", "nome": "GARA MONTECATINI", "staff": ["Leonardo", "Francesco"]},
-  {"data": "24 maggio", "nome": "GARA ROMA", "staff": ["Michela", "Giulia"]}
+  {"data": "24 maggio", "nome": "GARA ROMA", "staff": ["Michela", "Giulia"]},
   {"data": "24 maggio", "nome": "GARA LOIANO", "staff": ["Ugo", "Chiara"]}
 ]
