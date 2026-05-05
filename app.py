@@ -36,10 +36,8 @@ utenti = {
     "francesco": "fra56",
     "francescon": "fra07",
     "giulia": "giu04",
-    "kristina": "kri36",
     "matteo": "mat35",
     "michela": "mic43",
-    "raffaele": "raf21",
     "thomas": "tom45",
     "ugo": "ugo90",
     "valentina": "val75"
